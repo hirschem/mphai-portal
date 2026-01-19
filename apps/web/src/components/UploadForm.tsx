@@ -209,7 +209,6 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
                 'Generate Professional Proposal'
               )}
             </button>
-            </button>
           </div>
         )}
 
