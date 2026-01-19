@@ -14,7 +14,8 @@ file_manager = FileManager()
 
 class ExportService:
     def __init__(self):
-        self.template_path = Path(__file__).parent.parent / "templates" / "mph-invoice.pdf"
+        self.template_pg1_path = Path(__file__).parent.parent / "templates" / "mph-invoice-pg1.pdf"
+        self.template_pg2_path = Path(__file__).parent.parent / "templates" / "mph-invoice-pg2.pdf"
     
     async def export_document(self, session_id: str, proposal_data: ProposalData, format: str = "pdf") -> Path:
         """Export proposal to PDF using MPH invoice template"""
@@ -42,25 +43,21 @@ class ExportService:
         can.setFont("Helvetica", 10)
         
         # Position data on template (adjust these positions based on your template)
-        y_position = height - 2.5 * inch  # Start below header
-        bottom_margin = 1 * inch  # Stop before bottom of page
+        y_position = height - 3.15 * inch  # Start below Bill To section
+        bottom_margin = 1.5 * inch  # Stop before bottom (leave room for total)
         
-        # Client Information
+        # Date - position for template
+        can.setFont("Helvetica", 10)
+        can.drawString(6.5 * inch, height - 2.15 * inch, datetime.now().strftime('%m/%d/%Y'))
+        
+        # Bill To: Client name and address
         if data.client_name:
-            can.setFont("Helvetica-Bold", 11)
-            can.drawString(1 * inch, y_position, "BILL TO:")
             can.setFont("Helvetica", 10)
-            can.drawString(1 * inch, y_position - 15, data.client_name)
-            y_position -= 30
+            can.drawString(1.2 * inch, height - 2.65 * inch, data.client_name)
         
         if data.project_address:
-            can.drawString(1 * inch, y_position, data.project_address)
-            y_position -= 30
-        
-        # Date and Invoice Number
-        can.setFont("Helvetica", 9)
-        can.drawRightString(width - 1 * inch, height - 2.5 * inch, f"Date: {datetime.now().strftime('%B %d, %Y')}")
-        can.drawRightString(width - 1 * inch, height - 2.7 * inch, f"Invoice #: {session_id[:8].upper()}")
+            can.setFont("Helvetica", 10)
+            can.drawString(1.2 * inch, height - 2.85 * inch, data.project_address)
         
         y_position -= 20
         
@@ -224,24 +221,36 @@ class ExportService:
                     can.drawString(1 * inch, y_position, line)
                     y_position -= 12
         
+        # Add Total at the bottom of the last page
+        # Calculate total from all line items
+        total_amount = data.total if data.total else 0
+        
+        # Position at bottom of page (1 inch from bottom)
+        can.setFont("Helvetica-Bold", 12)
+        can.drawString(5.5 * inch, 1 * inch, "Total")
+        can.drawRightString(width - 1 * inch, 1 * inch, f"${total_amount:.2f}")
+        
         can.save()
         packet.seek(0)
         
         # Merge with template if it exists
-        if self.template_path.exists():
+        if self.template_pg1_path.exists() and self.template_pg2_path.exists():
             overlay_pdf = PdfReader(packet)
-            template_pdf = PdfReader(self.template_path)
+            template_pg1 = PdfReader(self.template_pg1_path)
+            template_pg2 = PdfReader(self.template_pg2_path)
             output = PdfWriter()
             
-            # First page: merge with template
+            # First page: merge with page 1 template
             if len(overlay_pdf.pages) > 0:
-                page = template_pdf.pages[0]
+                page = template_pg1.pages[0]
                 page.merge_page(overlay_pdf.pages[0])
                 output.add_page(page)
             
-            # Additional pages: add as plain white pages (no template)
+            # Additional pages: merge with page 2 template
             for i in range(1, len(overlay_pdf.pages)):
-                output.add_page(overlay_pdf.pages[i])
+                page = template_pg2.pages[0]
+                page.merge_page(overlay_pdf.pages[i])
+                output.add_page(page)
             
             # Write output
             with open(output_path, "wb") as output_file:
