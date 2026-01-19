@@ -146,7 +146,7 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-gray-600 mb-2 font-medium">
               {previews.length} image{previews.length !== 1 ? 's' : ''} selected
             </p>
             <div className="grid grid-cols-2 gap-4">
