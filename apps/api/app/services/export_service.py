@@ -42,39 +42,45 @@ class ExportService:
         # Set font
         can.setFont("Helvetica", 12)
         
-        # Position data on template (adjust these positions based on your template)
-        y_position = height - 3.15 * inch  # Start below Bill To section
-        bottom_margin = 1.5 * inch  # Stop before bottom (leave room for total)
+        # Position data on template based on red line markings
+        left_margin = 0.75 * inch  # Left edge for text
+        max_text_width = 5.75 * inch  # Max width for description box (left red box)
+        amount_x = 7.0 * inch  # Right column for amounts
         
-        # Date - top left under logo, aligned with "Date:" label
+        # Date - first red line
         can.setFont("Helvetica", 12)
-        can.drawString(1.2 * inch, height - 1.85 * inch, datetime.now().strftime('%m/%d/%Y'))
+        can.drawString(left_margin, height - 1.95 * inch, datetime.now().strftime('%m/%d/%Y'))
         
-        # Bill To: Client name and address - under date section
+        # Bill To: Client name - second red line
         if data.client_name:
             can.setFont("Helvetica", 12)
-            can.drawString(1.2 * inch, height - 2.25 * inch, data.client_name)
+            can.drawString(left_margin, height - 2.25 * inch, data.client_name)
         
+        # Bill To: Address - third red line
         if data.project_address:
             can.setFont("Helvetica", 12)
-            can.drawString(1.2 * inch, height - 2.45 * inch, data.project_address)
+            can.drawString(left_margin, height - 2.48 * inch, data.project_address)
+        
+        # Start position for description text (below the Bill To section)
+        y_position = height - 3.5 * inch
+        bottom_margin = 1.5 * inch
         
         # Line Items - place in template table if present
         if data.line_items and len(data.line_items) > 0:
-            # Starting position for line items in template (adjust based on your template)
-            line_y = height - 4.5 * inch
+            # Starting position for line items in template
+            line_y = height - 4.2 * inch
             can.setFont("Helvetica", 11)
             
             for idx, item in enumerate(data.line_items):
-                # Place description, qty, rate, amount in template columns
+                # Description in left red box
                 if item.description:
-                    can.drawString(1.2 * inch, line_y, item.description[:60])  # Truncate if too long
-                if item.quantity:
-                    can.drawString(5.5 * inch, line_y, str(item.quantity))
-                if item.rate:
-                    can.drawString(6.2 * inch, line_y, f"${item.rate:.2f}")
+                    # Wrap description to fit within max_text_width
+                    desc_text = item.description[:80]  # Limit length
+                    can.drawString(left_margin, line_y, desc_text)
+                
+                # Amount in right red box (right-aligned)
                 if item.amount:
-                    can.drawRightString(7.5 * inch, line_y, f"${item.amount:.2f}")
+                    can.drawRightString(amount_x + 0.5 * inch, line_y, f"${item.amount:.2f}")
                 
                 line_y -= 0.25 * inch  # Move to next line
                 
@@ -82,10 +88,11 @@ class ExportService:
                 if idx > 15:  # Assuming ~16 rows per page
                     break
         
-        y_position = height - 3.15 * inch  # Start below Bill To section
-        bottom_margin = 1.5 * inch  # Stop before bottom (leave room for total)
+        # Reset for content area - professionally rewritten proposal text
+        # Start below line items section
+        y_position = height - 3.5 * inch if not (data.line_items and len(data.line_items) > 0) else line_y - 0.3 * inch
         
-        # Content area - professionally rewritten proposal text
+        # Content area - professionally rewritten proposal text (fits in left red box)
         can.setFont("Helvetica", 12)
         
         # Scope of Work
@@ -95,32 +102,32 @@ class ExportService:
                 if y_position < bottom_margin + 30:
                     can.showPage()
                     y_position = height - 1.5 * inch
-                    can.setFont("Helvetica", 10)
+                    can.setFont("Helvetica", 12)
                 
-                # Wrap long text
-                if len(item) > 90:
+                # Wrap long text to fit within left red box max width
+                if len(item) > 70:  # Adjusted for max_text_width
                     words = item.split()
                     line = ""
                     for word in words:
-                        if len(line + word) < 90:
+                        if len(line + word) < 70:
                             line += word + " "
                         else:
                             if y_position < bottom_margin + 30:
                                 can.showPage()
                                 y_position = height - 1.5 * inch
-                                can.setFont("Helvetica", 10)
-                            can.drawString(1.2 * inch, y_position, line.strip())
+                                can.setFont("Helvetica", 12)
+                            can.drawString(left_margin, y_position, line.strip())
                             y_position -= 15
                             line = word + " "
                     if line:
                         if y_position < bottom_margin + 30:
                             can.showPage()
                             y_position = height - 1.5 * inch
-                            can.setFont("Helvetica", 10)
-                        can.drawString(1.2 * inch, y_position, line.strip())
+                            can.setFont("Helvetica", 12)
+                        can.drawString(left_margin, y_position, line.strip())
                         y_position -= 15
                 else:
-                    can.drawString(1.2 * inch, y_position, item)
+                    can.drawString(left_margin, y_position, item)
                     y_position -= 15
             
             y_position -= 10
