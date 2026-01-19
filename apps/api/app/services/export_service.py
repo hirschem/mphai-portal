@@ -40,30 +40,30 @@ class ExportService:
         width, height = letter
         
         # Set font
-        can.setFont("Helvetica", 10)
+        can.setFont("Helvetica", 12)
         
         # Position data on template (adjust these positions based on your template)
         y_position = height - 3.15 * inch  # Start below Bill To section
         bottom_margin = 1.5 * inch  # Stop before bottom (leave room for total)
         
-        # Date - position for template
-        can.setFont("Helvetica", 10)
-        can.drawString(6.5 * inch, height - 2.15 * inch, datetime.now().strftime('%m/%d/%Y'))
+        # Date - top left under logo, aligned with "Date:" label
+        can.setFont("Helvetica", 12)
+        can.drawString(1.2 * inch, height - 1.85 * inch, datetime.now().strftime('%m/%d/%Y'))
         
-        # Bill To: Client name and address
+        # Bill To: Client name and address - under date section
         if data.client_name:
-            can.setFont("Helvetica", 10)
-            can.drawString(1.2 * inch, height - 2.65 * inch, data.client_name)
+            can.setFont("Helvetica", 12)
+            can.drawString(1.2 * inch, height - 2.25 * inch, data.client_name)
         
         if data.project_address:
-            can.setFont("Helvetica", 10)
-            can.drawString(1.2 * inch, height - 2.85 * inch, data.project_address)
+            can.setFont("Helvetica", 12)
+            can.drawString(1.2 * inch, height - 2.45 * inch, data.project_address)
         
         # Line Items - place in template table if present
         if data.line_items and len(data.line_items) > 0:
             # Starting position for line items in template (adjust based on your template)
             line_y = height - 4.5 * inch
-            can.setFont("Helvetica", 9)
+            can.setFont("Helvetica", 11)
             
             for idx, item in enumerate(data.line_items):
                 # Place description, qty, rate, amount in template columns
@@ -86,7 +86,7 @@ class ExportService:
         bottom_margin = 1.5 * inch  # Stop before bottom (leave room for total)
         
         # Content area - professionally rewritten proposal text
-        can.setFont("Helvetica", 10)
+        can.setFont("Helvetica", 12)
         
         # Scope of Work
         if data.scope_of_work:
@@ -131,7 +131,7 @@ class ExportService:
                 can.showPage()
                 y_position = height - 1.5 * inch
             
-            can.setFont("Helvetica", 10)
+            can.setFont("Helvetica", 12)
             # Wrap payment terms text
             if len(data.payment_terms) > 90:
                 words = data.payment_terms.split()
@@ -161,7 +161,7 @@ class ExportService:
                 can.showPage()
                 y_position = height - 1.5 * inch
             
-            can.setFont("Helvetica", 10)
+            can.setFont("Helvetica", 12)
             # Wrap timeline text
             if len(data.timeline) > 90:
                 words = data.timeline.split()
@@ -192,7 +192,7 @@ class ExportService:
                 can.showPage()
                 y_position = height - 1.5 * inch
             
-            can.setFont("Helvetica", 10)
+            can.setFont("Helvetica", 12)
             # Wrap notes text
             notes_lines = data.notes.split('\n')
             for line in notes_lines:
