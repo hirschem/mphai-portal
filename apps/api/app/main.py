@@ -14,6 +14,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://mphai.app",
+        "https://www.mphai.app",
         "https://*.mphai.app",
         "https://*.vercel.app"
     ],
