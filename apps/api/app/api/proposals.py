@@ -24,8 +24,8 @@ async def generate_proposal(request: ProposalRequest):
     # Save to session
     await file_manager.save_proposal(request.session_id, proposal_data)
     
-    # Automatically generate PDF
-    await export_service.export_document(request.session_id, proposal_data, "pdf")
+    # Automatically generate PDF with professional text
+    await export_service.export_document(request.session_id, proposal_data, professional_text, "pdf")
     
     return ProposalResponse(
         session_id=request.session_id,

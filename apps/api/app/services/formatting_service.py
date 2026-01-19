@@ -61,13 +61,15 @@ class FormattingService:
                         "- subtotal (number or null)\n"
                         "- tax (number or null)\n"
                         "- total (number or null)\n"
-                        "- payment_terms (STRING or null - combine all payment info into one paragraph)\n"
-                        "- timeline (STRING or null - combine all timeline info into one paragraph)\n"
-                        "- notes (string or null)\n\n"
+                        "- payment_terms (null - always set to null, not used)\n"
+                        "- timeline (STRING or null - ONLY if a timeline/schedule is explicitly mentioned in the text. If no timeline is mentioned, use null)\n"
+                        "- notes (string or null - Include any PS notes, downpayment information, deposits, or side notes here)\n\n"
                         "IMPORTANT RULES:\n"
                         "1. For numeric fields, use null if not present - NEVER use strings or placeholders\n"
-                        "2. payment_terms and timeline MUST be plain strings, NOT objects or arrays\n"
-                        "3. If a line_item has no description, omit it entirely"
+                        "2. timeline MUST be plain string, NOT object or array, and ONLY if explicitly mentioned\n"
+                        "3. payment_terms should always be null (not used in output)\n"
+                        "4. notes should capture PS, downpayment, deposits, and any side comments\n"
+                        "5. If a line_item has no description, omit it entirely"
                     )
                 },
                 {
