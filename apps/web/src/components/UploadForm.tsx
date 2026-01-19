@@ -8,33 +8,40 @@ interface UploadFormProps {
 }
 
 export default function UploadForm({ onSuccess }: UploadFormProps) {
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
+  const [previews, setPreviews] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      setFile(selectedFile)
+    const selectedFiles = e.target.files
+    if (selectedFiles && selectedFiles.length > 0) {
+      const filesArray = Array.from(selectedFiles)
+      setFiles(filesArray)
       setError(null)
       
-      // Create preview
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setPreview(reader.result as string)
-      }
-      reader.readAsDataURL(selectedFile)
+      // Create previews for all files
+      const previewPromises = filesArray.map(file => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            resolve(reader.result as string)
+          }
+          reader.readAsDataURL(file)
+        })
+      })
+      
+      Promise.all(previewPromises).then(setPreviews)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!file) {
-      setError('Please select an image or take a photo')
+    if (files.length === 0) {
+      setError('Please select at least one image or take a photo')
       return
     }
 
@@ -42,8 +49,8 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
     setError(null)
 
     try {
-      // Step 1: Upload and transcribe
-      const transcribeResult = await uploadAndTranscribe(file)
+      // Step 1: Upload and transcribe (use first file for now, can be enhanced for multi-page)
+      const transcribeResult = await uploadAndTranscribe(files[0])
       
       // Step 2: Generate professional proposal
       const proposalResult = await generateProposal(
@@ -68,8 +75,8 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
   }
 
   const clearImage = () => {
-    setFile(null)
-    setPreview(null)
+    setFiles([])
+    setPreviews([])
     setError(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (cameraInputRef.current) cameraInputRef.current.value = ''
@@ -78,7 +85,7 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-8">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {!preview ? (
+        {previews.length === 0 ? (
           <div className="space-y-4">
             <p className="text-center text-gray-600 mb-4 text-lg">
               Choose how to add your proposal:
@@ -124,6 +131,7 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
               capture="environment"
               onChange={handleFileChange}
               className="hidden"
+              multiple
             />
             <input
               ref={fileInputRef}
@@ -131,16 +139,29 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
               accept="image/*"
               onChange={handleFileChange}
               className="hidden"
+              multiple
             />
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="relative">
-              <img
-                src={preview}
-                alt="Preview"
-                className="w-full h-auto rounded-lg border-2 border-gray-200"
-              />
+            <p className="text-sm text-gray-600 mb-2">
+              {previews.length} image{previews.length !== 1 ? 's' : ''} selected
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              {previews.map((preview, idx) => (
+                <div key={idx} className="relative">
+                  <img
+                    src={preview}
+                    alt={`Preview ${idx + 1}`}
+                    className="w-full h-auto rounded-lg border-2 border-gray-200"
+                  />
+                  <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold">
+                    Page {idx + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="relative"
               <button
                 type="button"
                 onClick={clearImage}

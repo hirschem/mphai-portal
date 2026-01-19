@@ -59,7 +59,31 @@ class ExportService:
             can.setFont("Helvetica", 10)
             can.drawString(1.2 * inch, height - 2.85 * inch, data.project_address)
         
-        y_position -= 20
+        # Line Items - place in template table if present
+        if data.line_items and len(data.line_items) > 0:
+            # Starting position for line items in template (adjust based on your template)
+            line_y = height - 4.5 * inch
+            can.setFont("Helvetica", 9)
+            
+            for idx, item in enumerate(data.line_items):
+                # Place description, qty, rate, amount in template columns
+                if item.description:
+                    can.drawString(1.2 * inch, line_y, item.description[:60])  # Truncate if too long
+                if item.quantity:
+                    can.drawString(5.5 * inch, line_y, str(item.quantity))
+                if item.rate:
+                    can.drawString(6.2 * inch, line_y, f"${item.rate:.2f}")
+                if item.amount:
+                    can.drawRightString(7.5 * inch, line_y, f"${item.amount:.2f}")
+                
+                line_y -= 0.25 * inch  # Move to next line
+                
+                # Check if we need a new page (template has limited rows)
+                if idx > 15:  # Assuming ~16 rows per page
+                    break
+        
+        y_position = height - 3.15 * inch  # Start below Bill To section
+        bottom_margin = 1.5 * inch  # Stop before bottom (leave room for total)
         
         # Content area - professionally rewritten proposal text
         can.setFont("Helvetica", 10)
