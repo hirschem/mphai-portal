@@ -42,7 +42,7 @@ class FileManager:
         session_dir = self.sessions_dir / session_id
         session_dir.mkdir(parents=True, exist_ok=True)
         
-        async with aiofiles.open(session_dir / "transcription.txt", "w") as f:
+        async with aiofiles.open(session_dir / "transcription.txt", "w", encoding="utf-8") as f:
             await f.write(text)
     
     async def save_proposal(self, session_id: str, proposal_data: ProposalData):
