@@ -36,6 +36,9 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
       })
       
       Promise.all(previewPromises).then(setPreviews)
+      
+      // Reset input so the same file can be selected again
+      e.target.value = ''
     }
   }
 
