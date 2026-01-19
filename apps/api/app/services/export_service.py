@@ -43,6 +43,7 @@ class ExportService:
         
         # Position data on template (adjust these positions based on your template)
         y_position = height - 2.5 * inch  # Start below header
+        bottom_margin = 1 * inch  # Stop before bottom of page
         
         # Client Information
         if data.client_name:
@@ -71,6 +72,12 @@ class ExportService:
             
             can.setFont("Helvetica", 10)
             for item in data.scope_of_work:
+                # Check if we need a new page
+                if y_position < bottom_margin + 30:
+                    can.showPage()
+                    y_position = height - 1 * inch
+                    can.setFont("Helvetica", 10)
+                
                 # Wrap long text
                 if len(item) > 80:
                     words = item.split()
@@ -79,10 +86,18 @@ class ExportService:
                         if len(line + word) < 80:
                             line += word + " "
                         else:
+                            if y_position < bottom_margin + 30:
+                                can.showPage()
+                                y_position = height - 1 * inch
+                                can.setFont("Helvetica", 10)
                             can.drawString(1.2 * inch, y_position, "• " + line.strip())
                             y_position -= 15
                             line = word + " "
                     if line:
+                        if y_position < bottom_margin + 30:
+                            can.showPage()
+                            y_position = height - 1 * inch
+                            can.setFont("Helvetica", 10)
                         can.drawString(1.2 * inch, y_position, "• " + line.strip())
                         y_position -= 15
                 else:
@@ -93,6 +108,11 @@ class ExportService:
         
         # Line Items Table
         if data.line_items:
+            # Check if we need a new page
+            if y_position < bottom_margin + 100:
+                can.showPage()
+                y_position = height - 1 * inch
+            
             y_position -= 20
             can.setFont("Helvetica-Bold", 10)
             can.drawString(1 * inch, y_position, "Description")
@@ -107,6 +127,12 @@ class ExportService:
             
             can.setFont("Helvetica", 9)
             for item in data.line_items:
+                # Check if we need a new page
+                if y_position < bottom_margin + 30:
+                    can.showPage()
+                    y_position = height - 1 * inch
+                    can.setFont("Helvetica", 9)
+                
                 can.drawString(1 * inch, y_position, item.description or "")
                 if item.quantity:
                     can.drawString(4.5 * inch, y_position, str(item.quantity))
@@ -156,6 +182,11 @@ class ExportService:
         
         # Notes
         if data.notes:
+            # Check if we need a new page
+            if y_position < bottom_margin + 50:
+                can.showPage()
+                y_position = height - 1 * inch
+            
             can.setFont("Helvetica-Bold", 10)
             can.drawString(1 * inch, y_position, "Notes:")
             y_position -= 15
@@ -163,6 +194,11 @@ class ExportService:
             # Wrap notes text
             notes_lines = data.notes.split('\n')
             for line in notes_lines:
+                if y_position < bottom_margin + 30:
+                    can.showPage()
+                    y_position = height - 1 * inch
+                    can.setFont("Helvetica", 9)
+                
                 if len(line) > 90:
                     words = line.split()
                     current_line = ""
@@ -170,10 +206,18 @@ class ExportService:
                         if len(current_line + word) < 90:
                             current_line += word + " "
                         else:
+                            if y_position < bottom_margin + 30:
+                                can.showPage()
+                                y_position = height - 1 * inch
+                                can.setFont("Helvetica", 9)
                             can.drawString(1 * inch, y_position, current_line.strip())
                             y_position -= 12
                             current_line = word + " "
                     if current_line:
+                        if y_position < bottom_margin + 30:
+                            can.showPage()
+                            y_position = height - 1 * inch
+                            can.setFont("Helvetica", 9)
                         can.drawString(1 * inch, y_position, current_line.strip())
                         y_position -= 12
                 else:
@@ -185,14 +229,19 @@ class ExportService:
         
         # Merge with template if it exists
         if self.template_path.exists():
-            template_pdf = PdfReader(self.template_path)
             overlay_pdf = PdfReader(packet)
+            template_pdf = PdfReader(self.template_path)
             output = PdfWriter()
             
-            # Merge first page
-            page = template_pdf.pages[0]
-            page.merge_page(overlay_pdf.pages[0])
-            output.add_page(page)
+            # First page: merge with template
+            if len(overlay_pdf.pages) > 0:
+                page = template_pdf.pages[0]
+                page.merge_page(overlay_pdf.pages[0])
+                output.add_page(page)
+            
+            # Additional pages: add as plain white pages (no template)
+            for i in range(1, len(overlay_pdf.pages)):
+                output.add_page(overlay_pdf.pages[i])
             
             # Write output
             with open(output_path, "wb") as output_file:

@@ -53,3 +53,26 @@ class ProposalSummary(BaseModel):
 class ProposalListResponse(BaseModel):
     proposals: List[ProposalSummary]
     total: int
+
+
+# Book/Chapter schemas
+class ChapterUploadResponse(BaseModel):
+    chapter_id: str
+    chapter_name: str
+    transcribed_text: str
+    page_count: int
+    status: str
+
+
+class ChapterData(BaseModel):
+    chapter_id: str
+    chapter_name: str
+    transcribed_text: str
+    page_count: int
+    created_at: str
+    has_docx: bool = False
+
+
+class ChapterListResponse(BaseModel):
+    chapters: List[ChapterData]
+    total: int

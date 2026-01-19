@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import transcribe, proposals, history, auth
+from app.api import transcribe, proposals, history, auth, books
 
 app = FastAPI(
     title="MPH Handwriting API",
@@ -28,6 +28,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(transcribe.router, prefix="/api/transcribe", tags=["transcribe"])
 app.include_router(proposals.router, prefix="/api/proposals", tags=["proposals"])
 app.include_router(history.router, prefix="/api/history", tags=["history"])
+app.include_router(books.router, prefix="/api/book", tags=["book"])
 
 
 @app.get("/")

@@ -11,6 +11,7 @@ interface AuthContextType {
   logout: () => void
   isAuthenticated: boolean
   isAdmin: boolean
+  getAuthHeader: () => { Authorization: string }
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -62,6 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('mph_auth')
   }
 
+  const getAuthHeader = () => {
+    if (!password) {
+      throw new Error('Not authenticated')
+    }
+    return { Authorization: `Bearer ${password}` }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -71,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         isAuthenticated: authLevel !== null,
         isAdmin: authLevel === 'admin',
+        getAuthHeader,
       }}
     >
       {children}

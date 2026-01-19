@@ -28,6 +28,11 @@ export default function HistoryPage() {
       const data = await listProposals()
       setProposals(data.proposals)
     } catch (err: any) {
+      setError(err.message || 'Failed to load proposals')
+    } finally {
+      setLoading(false)
+    }
+  }
       setError(err.message)
     } finally {
       setLoading(false)
@@ -61,15 +66,23 @@ export default function HistoryPage() {
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Proposal History
-          </h1>
+          <div>
+            <Link 
+              href="/"
+              className="text-blue-600 hover:text-blue-700 text-sm mb-2 inline-block"
+            >
+              ← Back to Mode Selection
+            </Link>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Invoice History
+            </h1>
+          </div>
           <Link
-            href="/"
+            href="/invoice"
             className="bg-blue-600 text-white px-4 py-2 rounded-lg
               hover:bg-blue-700 transition-colors"
           >
-            + New Proposal
+            + New Invoice
           </Link>
         </div>
 

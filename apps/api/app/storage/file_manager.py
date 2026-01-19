@@ -14,11 +14,13 @@ class FileManager:
         self.uploads_dir = self.data_dir / "raw_uploads"
         self.sessions_dir = self.data_dir / "sessions"
         self.ground_truth_dir = self.data_dir / "ground_truth"
+        self.books_dir = self.data_dir / "books"
         
         # Create directories
         self.uploads_dir.mkdir(parents=True, exist_ok=True)
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         self.ground_truth_dir.mkdir(parents=True, exist_ok=True)
+        self.books_dir.mkdir(parents=True, exist_ok=True)
     
     async def save_upload(self, session_id: str, file: UploadFile) -> Path:
         """Save uploaded image to raw_uploads and session directory"""
@@ -64,3 +66,37 @@ class FileManager:
             content = await f.read()
             data = json.loads(content)
             return ProposalData(**data)
+    
+    async def save_chapter_pages(self, chapter_id: str, files: list) -> list[Path]:
+        """Save multiple uploaded pages for a chapter"""
+        
+        chapter_dir = self.books_dir / chapter_id
+        chapter_dir.mkdir(parents=True, exist_ok=True)
+        
+        saved_paths = []
+        for i, file in enumerate(files, 1):
+            file_path = chapter_dir / f"page_{i:03d}_{file.filename}"
+            
+            async with aiofiles.open(file_path, 'wb') as f:
+                content = await file.read()
+                await f.write(content)
+            
+            saved_paths.append(file_path)
+        
+        return saved_paths
+    
+    async def save_chapter_data(self, chapter_id: str, chapter_name: str, transcribed_text: str, page_count: int):
+        """Save chapter metadata and transcription"""
+        
+        chapter_dir = self.books_dir / chapter_id
+        chapter_dir.mkdir(parents=True, exist_ok=True)
+        
+        data = {
+            "chapter_id": chapter_id,
+            "chapter_name": chapter_name,
+            "transcribed_text": transcribed_text,
+            "page_count": page_count
+        }
+        
+        async with aiofiles.open(chapter_dir / "chapter.json", "w") as f:
+            await f.write(json.dumps(data, indent=2))
