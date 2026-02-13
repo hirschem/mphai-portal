@@ -1,4 +1,4 @@
-
+__test__ = False
 
 import json
 from typing import Callable, Optional
