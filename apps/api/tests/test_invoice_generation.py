@@ -4,15 +4,33 @@ def load_fixture(name):
     with open(FIXTURE_DIR / name, "r") as f:
         return json.load(f)
 
+
 import os
+import importlib
+import pytest
 from fastapi.testclient import TestClient
 from pathlib import Path
 
 def auth_headers(password="demo2026"):
     return {"Authorization": f"Bearer {password}"}
 
-client = TestClient(__import__("app.main").main.app)
+
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "invoices"
+
+@pytest.fixture(autouse=True)
+def _reset_env_and_app(monkeypatch):
+    monkeypatch.delenv("MAX_REQUEST_BYTES", raising=False)
+    monkeypatch.delenv("ENFORCE_REQUEST_SIZE_LIMIT", raising=False)
+    from app.models.config import get_settings
+    get_settings.cache_clear()
+    import app.main as app_main
+    importlib.reload(app_main)
+
+@pytest.fixture
+def client():
+    import app.main as app_main
+    with TestClient(app_main.app) as c:
+        yield c
 
 def monkeypatch_formatting(monkeypatch):
     from app.api import proposals as proposals_api
@@ -37,7 +55,7 @@ def monkeypatch_formatting(monkeypatch):
 
     monkeypatch.setattr(proposals_api, "get_formatting_service", fake_get_formatting_service)
 
-def test_generate_proposal(monkeypatch):
+def test_generate_proposal(monkeypatch, client):
     monkeypatch_formatting(monkeypatch)
     payload = load_fixture("proposal_input.json")
     resp = client.post("/api/proposals/generate", json=payload, headers=auth_headers())
@@ -51,7 +69,7 @@ def test_generate_proposal(monkeypatch):
     for k, v in expected.items():
         assert data["document_data"].get(k) == v
 
-def test_generate_invoice(monkeypatch):
+def test_generate_invoice(monkeypatch, client):
     monkeypatch_formatting(monkeypatch)
     payload = load_fixture("invoice_input.json")
     resp = client.post("/api/proposals/generate", json=payload, headers=auth_headers())
@@ -65,7 +83,7 @@ def test_generate_invoice(monkeypatch):
     for k, v in expected.items():
         assert data["document_data"].get(k) == v
 
-def test_file_outputs(monkeypatch, tmp_path):
+def test_file_outputs(monkeypatch, tmp_path, client):
     monkeypatch_formatting(monkeypatch)
     payload = load_fixture("invoice_input.json")
     payload["session_id"] = "test-tmp-003"
