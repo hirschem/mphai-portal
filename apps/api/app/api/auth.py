@@ -8,7 +8,7 @@ router = APIRouter()
 class LoginRequest(BaseModel):
     password: str
 
-@router.post("/auth/login")
+@router.post("/login")
 async def login(request: LoginRequest):
     print("LOGIN HIT: bcd0a5f")
     return {"level": get_auth_level(request.password)}
