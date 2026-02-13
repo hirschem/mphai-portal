@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     demo_password: str = Field(validation_alias="DEMO_PASSWORD", default="demo2024")
     admin_password: str = Field(validation_alias="ADMIN_PASSWORD", default="mph_admin_2024")
     
+
+    # Rate limiting
+    login_rate_limit: int = Field(default=5, validation_alias="LOGIN_RATE_LIMIT")
+    generate_rate_limit: int = Field(default=3, validation_alias="GENERATE_RATE_LIMIT")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False
