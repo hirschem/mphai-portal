@@ -5,8 +5,14 @@ from app.models.schemas import TranscriptionResponse
 from app.storage.file_manager import FileManager
 import uuid
 
+
 router = APIRouter()
-ocr_service = OCRService()
+_ocr_service = None
+def get_ocr_service():
+    global _ocr_service
+    if _ocr_service is None:
+        _ocr_service = OCRService()
+    return _ocr_service
 file_manager = FileManager()
 
 
@@ -24,7 +30,7 @@ async def transcribe_image(file: UploadFile = File(...), auth_level: str = Depen
     image_path = await file_manager.save_upload(session_id, file)
     
     # Transcribe handwriting
-    raw_text = await ocr_service.transcribe_image(image_path)
+    raw_text = await get_ocr_service().transcribe_image(image_path)
     
     # Save raw transcription
     await file_manager.save_transcription(session_id, raw_text)

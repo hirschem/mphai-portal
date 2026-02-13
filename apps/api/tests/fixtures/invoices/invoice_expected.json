@@ -1,0 +1,13 @@
+{
+  "client_name": "",
+  "project_address": "",
+  "line_items": [
+    {"description": "Labor", "quantity": null, "rate": null, "amount": 4000.0},
+    {"description": "Materials", "quantity": null, "rate": null, "amount": 1500.0}
+  ],
+  "subtotal": 5500.0,
+  "tax": 0.0,
+  "total": 5500.0,
+  "payment_terms": null,
+  "notes": null
+}

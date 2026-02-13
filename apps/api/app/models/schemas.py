@@ -11,6 +11,7 @@ class TranscriptionResponse(BaseModel):
 class ProposalRequest(BaseModel):
     session_id: str
     raw_text: str
+    document_type: str = "proposal"  # "proposal" or "invoice", default is "proposal"
 
 
 class LineItem(BaseModel):
@@ -36,7 +37,9 @@ class ProposalData(BaseModel):
 class ProposalResponse(BaseModel):
     session_id: str
     professional_text: str
-    proposal_data: ProposalData
+    proposal_data: ProposalData  # backward compatibility
+    document_data: ProposalData  # preferred, same as proposal_data
+    document_type: str = "proposal"
     status: str
 
 

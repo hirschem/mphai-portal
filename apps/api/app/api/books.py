@@ -10,9 +10,15 @@ from pathlib import Path
 import uuid
 import json
 
+
 router = APIRouter()
 file_manager = FileManager()
-ocr_service = BookOCRService()
+_ocr_service = None
+def get_ocr_service():
+    global _ocr_service
+    if _ocr_service is None:
+        _ocr_service = BookOCRService()
+    return _ocr_service
 export_service = BookExportService()
 
 
@@ -30,7 +36,7 @@ async def upload_chapter(
     saved_paths = await file_manager.save_chapter_pages(chapter_id, files)
     
     # Transcribe all pages in order
-    transcribed_text = await ocr_service.transcribe_pages([str(p) for p in saved_paths])
+    transcribed_text = await get_ocr_service().transcribe_pages([str(p) for p in saved_paths])
     
     # Save chapter data
     await file_manager.save_chapter_data(chapter_id, chapter_name, transcribed_text, len(files))

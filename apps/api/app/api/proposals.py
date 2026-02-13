@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse
 from app.auth import require_auth
@@ -5,35 +6,59 @@ from app.services.formatting_service import FormattingService
 from app.services.export_service import ExportService
 from app.models.schemas import ProposalRequest, ProposalResponse
 from app.storage.file_manager import FileManager
+from app.api.logging_config import logger
+
 
 router = APIRouter()
-formatting_service = FormattingService()
+_formatting_service = None
+def get_formatting_service():
+    global _formatting_service
+    if _formatting_service is None:
+        _formatting_service = FormattingService()
+    return _formatting_service
 export_service = ExportService()
 file_manager = FileManager()
 
 
 @router.post("/generate", response_model=ProposalResponse)
 async def generate_proposal(request: ProposalRequest, auth_level: str = Depends(require_auth)):
-    """Convert transcribed text to professional proposal"""
-    
-    # Rewrite as professional construction proposal
-    professional_text = await formatting_service.rewrite_professional(request.raw_text)
-    
-    # Generate structured proposal
-    proposal_data = await formatting_service.structure_proposal(professional_text)
-    
-    # Save to session
-    await file_manager.save_proposal(request.session_id, proposal_data)
-    
-    # Automatically generate PDF with professional text
-    await export_service.export_document(request.session_id, proposal_data, professional_text, "pdf")
-    
-    return ProposalResponse(
-        session_id=request.session_id,
-        professional_text=professional_text,
-        proposal_data=proposal_data,
-        status="generated"
-    )
+    """Convert transcribed text to professional proposal or invoice"""
+    document_type = getattr(request, "document_type", None) or "proposal"
+    logger.info(f"[generate_proposal] session_id={request.session_id} document_type={document_type}")
+    try:
+        # Rewrite as professional construction proposal/invoice
+        professional_text = await get_formatting_service().rewrite_professional(request.raw_text)
+        logger.info(f"[rewrite_professional] session_id={request.session_id} done")
+
+        # Generate structured document (proposal/invoice)
+        proposal_data = await get_formatting_service().structure_proposal(professional_text, document_type=document_type)
+        logger.info(f"[structure_proposal] session_id={request.session_id} done")
+
+        # Save to session with correct naming
+        await file_manager.save_proposal(request.session_id, proposal_data, document_type=document_type)
+        logger.info(f"[save_proposal] session_id={request.session_id} done")
+
+        # Generate PDF with correct naming and header
+        await export_service.export_document(request.session_id, proposal_data, professional_text, "pdf", document_type=document_type)
+        logger.info(f"[export_document] session_id={request.session_id} done")
+
+        # Backward compatible: proposal_data, new: document_data, document_type
+        return ProposalResponse(
+            session_id=request.session_id,
+            professional_text=professional_text,
+            proposal_data=proposal_data,
+            document_data=proposal_data,
+            document_type=document_type,
+            status="generated"
+        )
+    except Exception as e:
+        logger.error(f"[generate_proposal] session_id={request.session_id} error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail={
+            "error": "Failed to generate document",
+            "session_id": request.session_id,
+            "document_type": document_type,
+            "reason": f"{type(e).__name__}: {e}"
+        })
 
 
 @router.post("/export/{session_id}")

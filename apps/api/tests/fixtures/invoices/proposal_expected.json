@@ -1,0 +1,15 @@
+{
+  "client_name": "",
+  "project_address": "",
+  "scope_of_work": ["Replace the kitchen cabinets", "Install new granite countertops"],
+  "line_items": [
+    {"description": "Kitchen cabinets", "quantity": null, "rate": null, "amount": 0.0},
+    {"description": "Granite countertops", "quantity": null, "rate": null, "amount": 0.0}
+  ],
+  "subtotal": 0.0,
+  "tax": 0.0,
+  "total": 8500.0,
+  "payment_terms": null,
+  "timeline": "2 weeks",
+  "notes": null
+}

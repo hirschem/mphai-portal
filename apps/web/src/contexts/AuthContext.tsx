@@ -21,13 +21,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [password, setPassword] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check localStorage for existing auth
+    // Check localStorage for existing auth (no password)
     const stored = localStorage.getItem('mph_auth')
     if (stored) {
       try {
-        const { authLevel, password } = JSON.parse(stored)
+        const { authLevel } = JSON.parse(stored)
         setAuthLevel(authLevel)
-        setPassword(password)
+        setPassword(null)
       } catch (e) {
         localStorage.removeItem('mph_auth')
       }
@@ -47,13 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json()
-    setAuthLevel(data.auth_level)
+    setAuthLevel(data.level)
     setPassword(pwd)
-    
-    localStorage.setItem('mph_auth', JSON.stringify({ 
-      authLevel: data.auth_level, 
-      password: pwd 
-    }))
+    localStorage.setItem('mph_auth', JSON.stringify({ authLevel: data.level }))
   }
 
   const logout = () => {

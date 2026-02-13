@@ -45,23 +45,32 @@ class FileManager:
         async with aiofiles.open(session_dir / "transcription.txt", "w", encoding="utf-8") as f:
             await f.write(text)
     
-    async def save_proposal(self, session_id: str, proposal_data: ProposalData):
-        """Save structured proposal data to session directory"""
-        
+    async def save_proposal(self, session_id: str, proposal_data, document_type: str = "proposal"):
+        """Save structured proposal/invoice data to session directory. Accepts Pydantic model or dict."""
         session_dir = self.sessions_dir / session_id
         session_dir.mkdir(parents=True, exist_ok=True)
-        
-        async with aiofiles.open(session_dir / "proposal.json", "w") as f:
-            await f.write(proposal_data.model_dump_json(indent=2))
+        filename = f"{document_type}.json"
+        if hasattr(proposal_data, "model_dump_json"):
+            json_str = proposal_data.model_dump_json(indent=2)
+        else:
+            import json
+            json_str = json.dumps(proposal_data, indent=2, ensure_ascii=False)
+        async with aiofiles.open(session_dir / filename, "w", encoding="utf-8") as f:
+            await f.write(json_str)
     
-    async def load_proposal(self, session_id: str) -> Optional[ProposalData]:
-        """Load proposal data from session directory"""
-        
-        proposal_path = self.sessions_dir / session_id / "proposal.json"
-        
+    async def load_proposal(self, session_id: str, document_type: str = "proposal") -> Optional[ProposalData]:
+        """Load proposal/invoice data from session directory"""
+        session_dir = self.sessions_dir / session_id
+        filename = f"{document_type}.json"
+        proposal_path = session_dir / filename
         if not proposal_path.exists():
-            return None
-        
+            # fallback for legacy: try proposal.json
+            if document_type != "proposal":
+                proposal_path = session_dir / "proposal.json"
+                if not proposal_path.exists():
+                    return None
+            else:
+                return None
         async with aiofiles.open(proposal_path, "r") as f:
             content = await f.read()
             data = json.loads(content)

@@ -47,20 +47,6 @@ app.include_router(proposals.router, prefix="/api/proposals", tags=["proposals"]
 app.include_router(history.router, prefix="/api/history", tags=["history"])
 app.include_router(books.router, prefix="/api/book", tags=["book"])
 
-# --- DEBUG: confirm which auth module/router is loaded in Railway ---
-print("=== AUTH MODULE DEBUG ===")
-print("auth module file:", getattr(auth, "__file__", "NO __file__"))
-print("auth.router.prefix:", getattr(auth.router, "prefix", "NO prefix attr"))
-print("auth.router.routes:", [getattr(r, "path", str(r)) for r in getattr(auth.router, "routes", [])])
-
-print("=== ROUTES DUMP (contains '/auth') ===")
-for r in app.routes:
-    p = getattr(r, "path", "")
-    if "/auth" in p:
-        print("ROUTE:", p, sorted(getattr(r, "methods", [])))
-print("=== END ROUTES DUMP ===")
-
-
 @app.get("/")
 async def root():
     return {

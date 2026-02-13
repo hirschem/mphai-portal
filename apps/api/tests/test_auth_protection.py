@@ -1,14 +1,19 @@
 
-from fastapi.testclient import TestClient
-from app.main import app
+
 from app.models.config import get_settings
 settings = get_settings()
-client = TestClient(app)
 
 import pytest
 from unittest.mock import AsyncMock
 
-def test_protected_requires_auth(monkeypatch):
+def test_protected_requires_auth(monkeypatch, client):
+    from app.api import transcribe as transcribe_api
+    class FakeOCRService:
+        async def transcribe_image(self, *a, **kw):
+            return "OCR_TEXT_STUB"
+    def fake_get_ocr_service():
+        return FakeOCRService()
+    monkeypatch.setattr(transcribe_api, "get_ocr_service", fake_get_ocr_service)
     # Ensure no Authorization header is sent
     resp = client.post(
         "/api/transcribe/upload",
@@ -17,13 +22,18 @@ def test_protected_requires_auth(monkeypatch):
     )
     assert resp.status_code == 401
 
-def test_protected_accepts_demo(monkeypatch):
+def test_protected_accepts_demo(monkeypatch, client):
+    from app.api import transcribe as transcribe_api
     from unittest.mock import AsyncMock
-    import app.api.transcribe as transcribe_mod
     demo_pw = settings.demo_password
+    class FakeOCRService:
+        async def transcribe_image(self, *a, **kw):
+            return "OCR_TEXT_STUB"
+    def fake_get_ocr_service():
+        return FakeOCRService()
+    monkeypatch.setattr(transcribe_api, "get_ocr_service", fake_get_ocr_service)
     # Patch awaited functions with AsyncMock
-    monkeypatch.setattr("app.api.transcribe.file_manager.save_upload", AsyncMock(return_value="/tmp/fake.png"))
-    monkeypatch.setattr("app.api.transcribe.ocr_service.transcribe_image", AsyncMock(return_value="dummy text"))
+    monkeypatch.setattr(transcribe_api.file_manager, "save_upload", AsyncMock(return_value="/tmp/fake.png"))
     resp = client.post(
         "/api/transcribe/upload",
         headers={"Authorization": f"Bearer {demo_pw}"},
@@ -31,11 +41,14 @@ def test_protected_accepts_demo(monkeypatch):
     )
     assert resp.status_code != 401
 
-def test_invalid_authorization_header_format_returns_401(monkeypatch):
-    # Patch as above to avoid external calls
-    import app.api.transcribe as transcribe_mod
-    assert hasattr(transcribe_mod.ocr_service, "transcribe_image")
-    monkeypatch.setattr(transcribe_mod.ocr_service, "transcribe_image", lambda x: "dummy text")
+def test_invalid_authorization_header_format_returns_401(monkeypatch, client):
+    from app.api import transcribe as transcribe_api
+    class FakeOCRService:
+        async def transcribe_image(self, *a, **kw):
+            return "OCR_TEXT_STUB"
+    def fake_get_ocr_service():
+        return FakeOCRService()
+    monkeypatch.setattr(transcribe_api, "get_ocr_service", fake_get_ocr_service)
     files = {'file': ('test.png', b'data', 'image/png')}
     # No 'Bearer ' prefix
     resp = client.post("/api/transcribe/upload", headers={"Authorization": "test123"}, files=files)
@@ -48,7 +61,7 @@ def test_invalid_authorization_header_format_returns_401(monkeypatch):
     "Basic abcdef",
     "Bearer a b",
 ])
-def test_malformed_authorization_headers_return_401(monkeypatch, header_value):
+def test_malformed_authorization_headers_return_401(monkeypatch, client, header_value):
     # Use GET /api/proposals/download/testid (protected, minimal work before auth)
     import app.api.proposals as proposals_mod
     # Patch file_manager and export_service to raise if called (should not be called)
@@ -57,7 +70,7 @@ def test_malformed_authorization_headers_return_401(monkeypatch, header_value):
     resp = client.get("/api/proposals/download/testid", headers={"Authorization": header_value})
     assert resp.status_code == 401
 
-def test_admin_only_still_enforced():
+def test_admin_only_still_enforced(client):
     demo_pw = settings.demo_password
     admin_pw = settings.admin_password
     # /api/history/list is admin only
