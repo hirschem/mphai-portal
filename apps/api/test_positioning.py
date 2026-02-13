@@ -60,16 +60,10 @@ output_path = Path(__file__).parent / "test_output.pdf"
 
 if template_path.exists():
     overlay_pdf = PdfReader(packet)
-    template = PdfReader(template_path)
-    output = PdfWriter()
-    
-    page = template.pages[0]
-    page.merge_page(overlay_pdf.pages[0])
-    output.add_page(page)
-    
+    output = PdfWriter(clone_from=template_path)
+    output.pages[0].merge_page(overlay_pdf.pages[0])
     with open(output_path, "wb") as output_file:
         output.write(output_file)
-    
     print(f"Test PDF created: {output_path}")
     print("Open it to see grid lines and test positioning")
 else:

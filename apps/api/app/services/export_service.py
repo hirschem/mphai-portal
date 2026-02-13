@@ -186,19 +186,23 @@ class ExportService:
         # Merge with template if it exists
         if self.template_pg1_path.exists() and self.template_pg2_path.exists():
             overlay_pdf = PdfReader(packet)
-            template_pg1 = PdfReader(self.template_pg1_path)
-            template_pg2 = PdfReader(self.template_pg2_path)
-            output = PdfWriter()
+            output = None
             if len(overlay_pdf.pages) > 0:
-                page = template_pg1.pages[0]
+                output = PdfWriter(clone_from=self.template_pg1_path)
+                page = output.pages[0]
                 page.merge_page(overlay_pdf.pages[0])
-                output.add_page(page)
             for i in range(1, len(overlay_pdf.pages)):
-                page = template_pg2.pages[0]
+                if output is None:
+                    output = PdfWriter(clone_from=self.template_pg2_path)
+                else:
+                    # For additional pages, clone template_pg2 and add
+                    extra_writer = PdfWriter(clone_from=self.template_pg2_path)
+                    output.add_page(extra_writer.pages[0])
+                page = output.pages[-1]
                 page.merge_page(overlay_pdf.pages[i])
-                output.add_page(page)
-            with open(output_path, "wb") as output_file:
-                output.write(output_file)
+            if output is not None:
+                with open(output_path, "wb") as output_file:
+                    output.write(output_file)
         else:
             with open(output_path, "wb") as output_file:
                 output_file.write(packet.getvalue())

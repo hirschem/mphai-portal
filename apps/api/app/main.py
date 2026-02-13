@@ -18,14 +18,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import transcribe, proposals, history, auth, books
 
-app = FastAPI(
+
+from app.middleware.request_size_limit import RequestSizeLimitMiddleware
+from app.models.config import get_settings
+
+
+fastapi_app = FastAPI(
     title="MPH Handwriting API",
     description="Transcribe handwritten proposals to professional documents",
     version="0.1.0"
 )
 
+settings = get_settings()
+
 # CORS middleware for Next.js frontend
-app.add_middleware(
+fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
@@ -41,20 +48,30 @@ app.add_middleware(
 )
 
 # Register routes
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(transcribe.router, prefix="/api/transcribe", tags=["transcribe"])
-app.include_router(proposals.router, prefix="/api/proposals", tags=["proposals"])
-app.include_router(history.router, prefix="/api/history", tags=["history"])
-app.include_router(books.router, prefix="/api/book", tags=["book"])
+fastapi_app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+fastapi_app.include_router(transcribe.router, prefix="/api/transcribe", tags=["transcribe"])
+fastapi_app.include_router(proposals.router, prefix="/api/proposals", tags=["proposals"])
+fastapi_app.include_router(history.router, prefix="/api/history", tags=["history"])
+fastapi_app.include_router(books.router, prefix="/api/book", tags=["book"])
 
-@app.get("/")
+@fastapi_app.get("/")
 async def root():
     return {
         "message": "MPH Handwriting API",
         "docs": "/docs"
     }
 
-
-@app.get("/health")
+@fastapi_app.get("/health")
 async def health():
     return {"status": "ok"}
+
+# Wrap with pure ASGI middleware last, so all entrypoints use the wrapped app
+if settings.ENFORCE_REQUEST_SIZE_LIMIT:
+    app = RequestSizeLimitMiddleware(
+        fastapi_app,
+        max_bytes=settings.MAX_REQUEST_BYTES,
+    )
+else:
+    app = fastapi_app
+
+

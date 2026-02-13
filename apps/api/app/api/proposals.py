@@ -29,6 +29,7 @@ async def generate_proposal(request: ProposalRequest, auth_level: str = Depends(
     # Rate limit check (after validation/auth, before any side effects)
     # Extract headers and client IP for rate limiting
     import inspect
+    from starlette.datastructures import Headers as StarletteHeaders
     # Try to get headers from context (test or prod)
     headers = {}
     client_host = "127.0.0.1"
@@ -39,6 +40,9 @@ async def generate_proposal(request: ProposalRequest, auth_level: str = Depends(
         if "client_host" in frame.f_locals:
             client_host = frame.f_locals["client_host"]
         frame = frame.f_back
+    # If headers is a list (ASGI raw), wrap with Headers for .get()
+    if isinstance(headers, list):
+        headers = StarletteHeaders(raw=headers)
     # Use X-Forwarded-For if present
     xff = headers.get("X-Forwarded-For") or headers.get("x-forwarded-for")
     ip = xff.split(",")[0].strip() if xff else client_host
