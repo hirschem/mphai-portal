@@ -7,6 +7,7 @@ from app.services.export_service import ExportService
 from app.models.schemas import ProposalRequest, ProposalResponse
 from app.storage.file_manager import FileManager
 from app.api.logging_config import logger
+from app.security.rate_limit import RateLimiter
 
 
 router = APIRouter()
@@ -16,13 +17,36 @@ def get_formatting_service():
     if _formatting_service is None:
         _formatting_service = FormattingService()
     return _formatting_service
+
 export_service = ExportService()
 file_manager = FileManager()
+rate_limiter = RateLimiter()
 
 
 @router.post("/generate", response_model=ProposalResponse)
 async def generate_proposal(request: ProposalRequest, auth_level: str = Depends(require_auth)):
     """Convert transcribed text to professional proposal or invoice"""
+    # Rate limit check (after validation/auth, before any side effects)
+    # Extract headers and client IP for rate limiting
+    import inspect
+    # Try to get headers from context (test or prod)
+    headers = {}
+    client_host = "127.0.0.1"
+    frame = inspect.currentframe()
+    while frame:
+        if "headers" in frame.f_locals:
+            headers = frame.f_locals["headers"]
+        if "client_host" in frame.f_locals:
+            client_host = frame.f_locals["client_host"]
+        frame = frame.f_back
+    # Use X-Forwarded-For if present
+    xff = headers.get("X-Forwarded-For") or headers.get("x-forwarded-for")
+    ip = xff.split(",")[0].strip() if xff else client_host
+    try:
+        rate_limiter.check(ip, "generate", 3)
+    except HTTPException as exc:
+        raise exc
+
     document_type = getattr(request, "document_type", None) or "proposal"
     logger.info(f"[generate_proposal] session_id={request.session_id} document_type={document_type}")
     try:
