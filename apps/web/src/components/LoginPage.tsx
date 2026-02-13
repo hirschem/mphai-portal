@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { API_URL } from '@/lib/apiClient'
 
 export default function LoginPage() {
   const [password, setPassword] = useState('')
@@ -67,6 +68,10 @@ export default function LoginPage() {
           >
             {loading ? 'Verifying...' : 'Login'}
           </button>
+          {/* TEMP DEBUG: Show API_URL */}
+          <div style={{ fontSize: '0.7em', color: '#888', marginTop: 4 }}>
+            API: {API_URL}
+          </div>
         </form>
 
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">

@@ -31,12 +31,8 @@ export default function BookHistoryPage() {
 
   const loadChapters = async () => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/book/list`,
-        {
-          headers: getAuthHeader(),
-        }
-      )
+      const { apiFetch } = await import("@/lib/apiClient");
+      const response = await apiFetch("/api/book/list");
 
       if (!response.ok) throw new Error('Failed to load chapters')
 

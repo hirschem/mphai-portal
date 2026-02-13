@@ -35,13 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (pwd: string) => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-    
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    const { apiFetch } = await import("@/lib/apiClient");
+    const response = await apiFetch("/api/auth/login", {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pwd }),
-    })
+    });
 
     if (!response.ok) {
       throw new Error('Invalid password')

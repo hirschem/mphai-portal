@@ -48,22 +48,11 @@ export async function exportProposal(sessionId: string, format: string = 'pdf') 
 }
 
 function getAuthHeader(): HeadersInit {
-  const stored = localStorage.getItem('mph_auth')
-  if (stored) {
-    try {
-      const { password } = JSON.parse(stored)
-      return { 'Authorization': `Bearer ${password}` }
-    } catch (e) {
-      return {}
-    }
-  }
-  return {}
-}
+// moved to apiClient.ts
 
 export async function listProposals() {
-  const response = await fetch(`${API_URL}/api/history/list`, {
-    headers: getAuthHeader()
-  })
+  const { apiFetch } = await import("@/lib/apiClient");
+  const response = await apiFetch("/api/history/list");
 
   if (!response.ok) {
     throw new Error('Failed to fetch proposals')
@@ -73,9 +62,8 @@ export async function listProposals() {
 }
 
 export async function getProposal(sessionId: string) {
-  const response = await fetch(`${API_URL}/api/history/${sessionId}`, {
-    headers: getAuthHeader()
-  })
+  const { apiFetch } = await import("@/lib/apiClient");
+  const response = await apiFetch(`/api/history/${sessionId}`);
 
   if (!response.ok) {
     throw new Error('Failed to fetch proposal')
@@ -85,10 +73,10 @@ export async function getProposal(sessionId: string) {
 }
 
 export async function deleteProposal(sessionId: string) {
-  const response = await fetch(`${API_URL}/api/history/${sessionId}`, {
+  const { apiFetch } = await import("@/lib/apiClient");
+  const response = await apiFetch(`/api/history/${sessionId}`, {
     method: 'DELETE',
-    headers: getAuthHeader()
-  })
+  });
 
   if (!response.ok) {
     throw new Error('Failed to delete proposal')
