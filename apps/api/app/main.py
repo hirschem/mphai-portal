@@ -16,10 +16,9 @@ app.add_middleware(
         "http://localhost:3001",
         "http://localhost:3002",
         "https://mphai.app",
-        "https://www.mphai.app",
-        "https://*.mphai.app",
-        "https://*.vercel.app"
+        "https://www.mphai.app"
     ],
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
