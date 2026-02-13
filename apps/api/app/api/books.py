@@ -4,7 +4,7 @@ from app.storage.file_manager import FileManager
 from app.services.book_ocr_service import BookOCRService
 from app.services.book_export_service import BookExportService
 from app.models.schemas import ChapterUploadResponse, ChapterListResponse, ChapterData
-from app.auth import require_admin
+from app.auth import require_admin, require_auth
 from datetime import datetime
 from pathlib import Path
 import uuid
@@ -19,7 +19,8 @@ export_service = BookExportService()
 @router.post("/upload", response_model=ChapterUploadResponse)
 async def upload_chapter(
     chapter_name: str = Form(...),
-    files: list[UploadFile] = File(...)
+    files: list[UploadFile] = File(...),
+    auth_level: str = Depends(require_auth)
 ):
     """Upload and transcribe multiple pages of a book chapter"""
     

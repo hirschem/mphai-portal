@@ -1,3 +1,19 @@
+import logging
+# --- Redact Authorization header in logs (minimal filter) ---
+class RedactAuthFilter(logging.Filter):
+    def filter(self, record):
+        # Redact Authorization in args dict
+        if hasattr(record, 'args') and isinstance(record.args, dict):
+            args = dict(record.args)
+            if 'authorization' in args:
+                args['authorization'] = '[REDACTED]'
+            record.args = args
+        # Redact Authorization in msg string
+        if hasattr(record, 'msg') and isinstance(record.msg, str) and 'authorization' in record.msg.lower():
+            record.msg = record.msg.replace('Authorization', 'Authorization[REDACTED]')
+        return True
+for handler in logging.getLogger().handlers:
+    handler.addFilter(RedactAuthFilter())
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import transcribe, proposals, history, auth, books

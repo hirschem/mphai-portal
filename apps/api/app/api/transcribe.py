@@ -1,4 +1,5 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from app.auth import require_auth
 from app.services.ocr_service import OCRService
 from app.models.schemas import TranscriptionResponse
 from app.storage.file_manager import FileManager
@@ -10,7 +11,7 @@ file_manager = FileManager()
 
 
 @router.post("/upload", response_model=TranscriptionResponse)
-async def transcribe_image(file: UploadFile = File(...)):
+async def transcribe_image(file: UploadFile = File(...), auth_level: str = Depends(require_auth)):
     """Upload handwritten image and get transcription"""
     
     if not file.content_type or not file.content_type.startswith("image/"):

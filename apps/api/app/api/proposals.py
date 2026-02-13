@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse
+from app.auth import require_auth
 from app.services.formatting_service import FormattingService
 from app.services.export_service import ExportService
 from app.models.schemas import ProposalRequest, ProposalResponse
@@ -12,7 +13,7 @@ file_manager = FileManager()
 
 
 @router.post("/generate", response_model=ProposalResponse)
-async def generate_proposal(request: ProposalRequest):
+async def generate_proposal(request: ProposalRequest, auth_level: str = Depends(require_auth)):
     """Convert transcribed text to professional proposal"""
     
     # Rewrite as professional construction proposal
@@ -36,7 +37,7 @@ async def generate_proposal(request: ProposalRequest):
 
 
 @router.post("/export/{session_id}")
-async def export_proposal(session_id: str, format: str = "pdf"):
+async def export_proposal(session_id: str, format: str = "pdf", auth_level: str = Depends(require_auth)):
     """Export proposal to PDF or Word document"""
     
     # Load proposal data
@@ -56,7 +57,7 @@ async def export_proposal(session_id: str, format: str = "pdf"):
 
 
 @router.get("/download/{session_id}")
-async def download_proposal(session_id: str):
+async def download_proposal(session_id: str, auth_level: str = Depends(require_auth)):
     """Download the PDF proposal"""
     
     # Check if PDF exists
