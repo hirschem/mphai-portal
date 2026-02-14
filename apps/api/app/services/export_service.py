@@ -39,16 +39,41 @@ class ExportService:
             can.drawString(1.0 * inch, height - 1.0 * inch, "INVOICE")
         else:
             can.drawString(1.0 * inch, height - 1.0 * inch, "PROPOSAL / ESTIMATE")
-        can.setFont("Helvetica", 12)
-        # Date - right after "Date:" label
-        can.drawString(1.5 * inch, height - 2.0 * inch, datetime.now().strftime('%m/%d/%Y'))
-        # Bill To: Name
-        if getattr(data, "client_name", None):
-            can.drawString(1.5 * inch, height - 2.3 * inch, data.client_name)
-        # Bill To: Address
-        if getattr(data, "project_address", None):
-            can.drawString(1.5 * inch, height - 2.5 * inch, data.project_address)
-        # Invoice-specific fields
+
+        # --- Overlay dynamic values next to static labels ---
+        label_font = "Helvetica"
+        label_size = 11
+        can.setFont(label_font, label_size)
+        # Coordinates must match those in the template
+        date_value_x = 1.0 * inch + 0.55 * inch  # right after 'Date:'
+        date_value_y = 9.05 * inch + 0.32 * inch  # same as label
+        billto_value_x = 1.0 * inch + 0.75 * inch  # right after 'Bill To:'
+        billto_value_y = date_value_y - 0.23 * inch
+
+        # Date value (from data or fallback to today)
+        date_val = getattr(data, "date", None)
+        if not date_val:
+            date_val = datetime.now().strftime('%m/%d/%Y')
+        can.drawString(date_value_x, date_value_y, str(date_val))
+
+        # Bill To: Name (required)
+        client_name = getattr(data, "client_name", None)
+        if client_name:
+            can.drawString(billto_value_x, billto_value_y, client_name)
+        else:
+            can.setFillColorRGB(0.7, 0.1, 0.1)
+            can.drawString(billto_value_x, billto_value_y, "[Missing client name]")
+            can.setFillColorRGB(0, 0, 0)
+        # Bill To: Address (below name)
+        project_address = getattr(data, "project_address", None)
+        if project_address:
+            can.drawString(billto_value_x, billto_value_y - 0.18 * inch, project_address)
+        else:
+            can.setFillColorRGB(0.7, 0.1, 0.1)
+            can.drawString(billto_value_x, billto_value_y - 0.18 * inch, "[Missing address]")
+            can.setFillColorRGB(0, 0, 0)
+
+        # Invoice-specific fields (right side, unchanged)
         if document_type == "invoice":
             if getattr(data, "invoice_number", None):
                 can.drawString(5.5 * inch, height - 2.0 * inch, f"Invoice #: {data.invoice_number}")
