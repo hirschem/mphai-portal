@@ -62,6 +62,8 @@ def create_app() -> FastAPI:
     app.include_router(proposals.router, prefix="/api/proposals", tags=["proposals"])
     app.include_router(history.router, prefix="/api/history", tags=["history"])
     app.include_router(books.router, prefix="/api/book", tags=["book"])
+    from app.api import admin_saves
+    app.include_router(admin_saves.router)
 
     @app.get("/")
     async def root():

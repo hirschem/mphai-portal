@@ -33,11 +33,8 @@ export default function BookHistoryPage() {
     try {
       const { apiFetch } = await import("@/lib/apiClient");
       const response = await apiFetch("/api/book/list");
-
-      if (!response.ok) throw new Error('Failed to load chapters')
-
-      const data = await response.json()
-      setChapters(data.chapters)
+      if (!response.ok) throw new Error('Failed to load chapters');
+      setChapters((response.data as { chapters?: Chapter[] }).chapters ?? []);
     } catch (err) {
       setError('Failed to load chapter history')
       console.error(err)

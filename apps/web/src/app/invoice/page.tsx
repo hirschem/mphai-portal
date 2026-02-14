@@ -1,19 +1,57 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import UploadForm from '@/components/UploadForm'
 import ProposalDisplay from '@/components/ProposalDisplay'
+import { apiFetch } from '@/lib/apiClient'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function InvoicePage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [proposalData, setProposalData] = useState<any>(null)
+  const [proposalData, setProposalData] = useState<unknown>(null)
   const { isAdmin, logout } = useAuth()
+
+  // Hydrate from admin persistence on mount (admin only)
+  useEffect(() => {
+    if (!isAdmin) return;
+    const entityId = sessionId || 'current';
+    apiFetch(`/api/admin-saves/invoice/${entityId}`)
+      .then(({ ok, data }) => {
+        if (ok && data) {
+          const saved = (data ?? {}) as { proposalData?: unknown; sessionId?: string | null };
+          if (saved.proposalData) setProposalData(saved.proposalData);
+          if (saved.sessionId !== undefined) setSessionId(saved.sessionId || null);
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
+  // Persist to admin-saves on upload/edit (admin only)
+  const persistAdminSave = useCallback((sid: string, pdata: unknown) => {
+    if (!isAdmin) return;
+    apiFetch(`/api/admin-saves/invoice/${sid || 'current'}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proposalData: pdata, sessionId: sid }),
+    });
+  }, [isAdmin]);
+
+  // Dev-only admin save key hint
+  const devSaveKey = process.env.NODE_ENV !== 'production' && isAdmin
+    ? `invoice/${sessionId || 'current'}`
+    : null
 
   return (
     <main className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
+        {devSaveKey && (
+          <div style={{ fontSize: 12, color: '#888', marginBottom: 8, userSelect: 'all' }}>
+            <span style={{ background: '#f3f3f3', padding: '2px 6px', borderRadius: 4 }}>
+              [dev] admin save key: {devSaveKey}
+            </span>
+          </div>
+        )}
         <header className="mb-8">
           <div className="flex justify-between items-center">
             <div>
@@ -57,15 +95,16 @@ export default function InvoicePage() {
 
         <UploadForm 
           onSuccess={(sessionId, data) => {
-            setSessionId(sessionId)
-            setProposalData(data)
+            setSessionId(sessionId);
+            setProposalData(data);
+            persistAdminSave(sessionId, data);
           }}
         />
 
-        {proposalData && sessionId && (
+        {Boolean(proposalData) && Boolean(sessionId) && (
           <ProposalDisplay 
             data={proposalData} 
-            sessionId={sessionId}
+            sessionId={sessionId!}
           />
         )}
       </div>

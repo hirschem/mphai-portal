@@ -1,6 +1,8 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { readAuthToken, writeAuthToken, clearAuthToken, readAuthLevel, writeAuthLevel } from '../lib/auth';
+import { apiFetch } from '@/lib/apiClient';
 
 type AuthLevel = 'demo' | 'admin' | null
 
@@ -21,42 +23,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [password, setPassword] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check localStorage for existing auth (no password)
-    const stored = localStorage.getItem('mph_auth')
-    if (stored) {
-      try {
-        const { authLevel } = JSON.parse(stored)
-        setAuthLevel(authLevel)
-        setPassword(null)
-      } catch (e) {
-        localStorage.removeItem('mph_auth')
-      }
-    }
-  }, [])
+    // SSR-safe: only read in browser
+    const token = readAuthToken();
+    const level = readAuthLevel();
+    setPassword(token);
+    setAuthLevel(level);
+  }, []);
 
   const login = async (pwd: string) => {
-    const { apiFetch } = await import("@/lib/apiClient");
-    const response = await apiFetch("/api/auth/login", {
+    const { ok, data, error } = await apiFetch("/api/auth/login", {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pwd }),
     });
-
-    if (!response.ok) {
-      throw new Error('Invalid password')
-    }
-
-    const data = await response.json()
-    setAuthLevel(data.level)
-    setPassword(pwd)
-    localStorage.setItem('mph_auth', JSON.stringify({ authLevel: data.level }))
-  }
+    if (!ok) throw error || new Error('Invalid password');
+    const authData = (data ?? {}) as { level?: string };
+    const level = authData.level === 'admin' || authData.level === 'demo' ? authData.level : 'admin';
+    setAuthLevel(level);
+    setPassword(pwd);
+    writeAuthToken(pwd);
+    writeAuthLevel(level);
+  };
 
   const logout = () => {
-    setAuthLevel(null)
-    setPassword(null)
-    localStorage.removeItem('mph_auth')
-  }
+    setAuthLevel(null);
+    setPassword(null);
+    clearAuthToken();
+  };
 
   const getAuthHeader = () => {
     if (!password) {

@@ -27,5 +27,17 @@ async def login(request: LoginRequest, req: Request):
     else:
         ip = req.client.host if req.client else "unknown"
     rate_limiter.check(ip, "login", 5)
-    return {"level": get_auth_level(request.password)}
+
+    # Minimal debug output
+    from app.models.config import get_settings
+    admin_pw = get_settings().admin_password
+    print(f"[DEBUG] Received password length: {len(request.password)}")
+    print(f"[DEBUG] ADMIN_PASSWORD loaded: {bool(admin_pw)}")
+    try:
+        level = get_auth_level(request.password)
+        print(f"[DEBUG] Comparison passes: {level == 'admin'}")
+    except Exception as e:
+        print(f"[DEBUG] Comparison error: {e}")
+        raise
+    return {"level": level}
 

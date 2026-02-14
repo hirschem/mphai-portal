@@ -18,7 +18,8 @@ export default function LoginPage() {
     try {
       await login(password)
       // Redirect handled by layout
-    } catch (err) {
+    } catch (err: unknown) {
+      console.error(err);
       setError('Invalid password. Please try again.')
       setPassword('')
     } finally {
@@ -76,7 +77,7 @@ export default function LoginPage() {
 
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <p className="text-xs text-gray-600 text-center">
-            <strong>Demo Access:</strong> Try password "demo2026" to test the app
+            <strong>Demo Access:</strong> Try password &quot;demo2026&quot; to test the app
           </p>
         </div>
       </div>

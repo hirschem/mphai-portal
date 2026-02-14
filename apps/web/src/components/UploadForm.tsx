@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { uploadAndTranscribe, generateProposal } from '@/lib/api'
+import { apiFetch } from '@/lib/apiClient'
 
 interface UploadFormProps {
-  onSuccess: (sessionId: string, proposalData: any) => void
+  onSuccess: (sessionId: string, proposalData: unknown) => void
 }
 
 export default function UploadForm({ onSuccess }: UploadFormProps) {
@@ -55,17 +55,35 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
 
     try {
       // Step 1: Upload and transcribe (use first file for now, can be enhanced for multi-page)
-      const transcribeResult = await uploadAndTranscribe(files[0])
-      
+      const formData = new FormData();
+      formData.append('file', files[0]);
+      const transcribeResp = await apiFetch('/api/transcribe/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!transcribeResp.ok) throw transcribeResp.error || new Error('Failed to transcribe');
+      const transcribeResult = transcribeResp.data;
+      const tr = transcribeResult as { session_id: string; raw_text: string };
+
       // Step 2: Generate professional proposal
-      const proposalResult = await generateProposal(
-        transcribeResult.session_id,
-        transcribeResult.raw_text
-      )
-      
-      onSuccess(proposalResult.session_id, proposalResult)
-    } catch (err: any) {
-      setError(err.message || 'Failed to process image')
+      const proposalResp = await apiFetch('/api/proposals/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: tr.session_id,
+          raw_text: tr.raw_text,
+        }),
+      });
+      if (!proposalResp.ok) throw proposalResp.error || new Error('Failed to generate proposal');
+      const proposalResult = proposalResp.data as Record<string, unknown> & { session_id: string };
+
+      onSuccess(proposalResult.session_id, proposalResult);
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string') {
+        setError((err as { message: string }).message || 'Failed to process image');
+      } else {
+        setError('Failed to process image');
+      }
     } finally {
       setLoading(false)
     }

@@ -1,15 +1,22 @@
 'use client'
 
 interface ProposalDisplayProps {
-  sessionId: string
-  data: any
+  sessionId: string | null
+  data: unknown
+  onEdit?: (data: unknown) => void
 }
 
+
 export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProps) {
+  const d = data as Record<string, unknown>;
+  const proposal = (typeof d.proposal_data === 'object' && d.proposal_data !== null)
+    ? (d.proposal_data as Record<string, unknown>)
+    : {};
+  const clientName = (proposal.client_name as string) ?? "Client";
+
   const handleDownload = () => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
     const downloadUrl = `${apiUrl}/api/proposals/download/${sessionId}`
-    
     // Open in new tab or trigger download
     window.open(downloadUrl, '_blank')
   }
@@ -17,11 +24,9 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
   const handleEmail = () => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
     const downloadUrl = `${apiUrl}/api/proposals/download/${sessionId}`
-    
     // Create email with link to PDF
-    const subject = encodeURIComponent(`Proposal for ${data.proposal_data.client_name || 'Client'}`)
+    const subject = encodeURIComponent(`Proposal for ${clientName}`)
     const body = encodeURIComponent(`Please find the proposal attached.\n\nYou can download it here: ${downloadUrl}`)
-    
     window.location.href = `mailto:?subject=${subject}&body=${body}`
   }
 
@@ -63,10 +68,10 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
             Client Information
           </h3>
           <p className="text-gray-700">
-            <strong>Name:</strong> {data.proposal_data.client_name || 'N/A'}
+            <strong>Name:</strong> {proposal.client_name as string || 'N/A'}
           </p>
           <p className="text-gray-700">
-            <strong>Address:</strong> {data.proposal_data.project_address || 'N/A'}
+            <strong>Address:</strong> {proposal.project_address as string || 'N/A'}
           </p>
         </section>
 
@@ -75,30 +80,30 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
             Professional Text
           </h3>
           <div className="bg-gray-50 p-4 rounded-md whitespace-pre-wrap">
-            {data.professional_text}
+            {d.professional_text as string}
           </div>
         </section>
 
-        {data.proposal_data.scope_of_work && (
+        {Array.isArray(proposal.scope_of_work) && (
           <section>
             <h3 className="text-lg font-semibold text-gray-800 mb-2">
               Scope of Work
             </h3>
             <ul className="list-disc list-inside space-y-1">
-              {data.proposal_data.scope_of_work.map((item: string, idx: number) => (
-                <li key={idx} className="text-gray-700">{item}</li>
+              {(proposal.scope_of_work as unknown[]).map((item, idx) => (
+                <li key={idx} className="text-gray-700">{item as string}</li>
               ))}
             </ul>
           </section>
         )}
 
-        {data.proposal_data.total && (
+        {typeof proposal.total === 'number' && (
           <section>
             <h3 className="text-lg font-semibold text-gray-800 mb-2">
               Total
             </h3>
             <p className="text-2xl font-bold text-green-600">
-              ${data.proposal_data.total.toFixed(2)}
+              ${(proposal.total as number).toFixed(2)}
             </p>
           </section>
         )}

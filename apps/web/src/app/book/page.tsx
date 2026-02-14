@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { apiFetch } from '@/lib/apiClient'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -11,13 +12,59 @@ export default function BookPage() {
   const [transcribedText, setTranscribedText] = useState('')
   const [chapterId, setChapterId] = useState('')
   const [error, setError] = useState('')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const { isAdmin, logout } = useAuth()
+  const hydratedRef = useRef(false)
+  const dirtyRef = useRef(false)
+  // Mark as dirty on any user interaction
+  const markDirty = () => { dirtyRef.current = true }
+
+  // Choose entity_id for admin persistence
+  const entityId = chapterId || 'current'
+
+  // Hydrate from admin persistence on mount (admin only, not dirty)
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (hydratedRef.current || dirtyRef.current) return;
+    apiFetch(`/api/admin-saves/book/${entityId}`)
+      .then(({ ok, data }) => {
+        if (ok && data && !dirtyRef.current) {
+          const saved = (data ?? {}) as { chapterName?: string; selectedFiles?: unknown; transcribedText?: string; chapterId?: string };
+          if (saved.chapterName) setChapterName(saved.chapterName)
+          if (saved.selectedFiles) setSelectedFiles([]) // cannot hydrate File objects
+          if (saved.transcribedText) setTranscribedText(saved.transcribedText)
+          if (saved.chapterId) setChapterId(saved.chapterId)
+          hydratedRef.current = true
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
+  // Persist to admin-saves on save/upload (admin only)
+  const persistAdminSave = useCallback(() => {
+    if (!isAdmin) return;
+    setSaveStatus('saving')
+    apiFetch(`/api/admin-saves/book/${entityId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chapterName,
+        // selectedFiles cannot be persisted (File objects), skip
+        transcribedText,
+        chapterId,
+      }),
+    }).then(({ ok }) => {
+      setSaveStatus(ok ? 'saved' : 'error')
+      if (ok) setTimeout(() => setSaveStatus('idle'), 1200)
+    }).catch(() => setSaveStatus('error'))
+  }, [isAdmin, entityId, chapterName, transcribedText, chapterId])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files)
       setSelectedFiles(filesArray)
       setError('')
+      markDirty()
     }
   }
 
@@ -26,44 +73,41 @@ export default function BookPage() {
       setError('Please enter a chapter name')
       return
     }
-    
     if (selectedFiles.length === 0) {
       setError('Please select at least one image')
       return
     }
-
     setIsLoading(true)
     setError('')
-
     try {
       const formData = new FormData()
       formData.append('chapter_name', chapterName)
-      
       selectedFiles.forEach(file => {
         formData.append('files', file)
       })
-
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/book/upload`, {
         method: 'POST',
         body: formData,
       })
-
       if (!response.ok) {
         throw new Error('Upload failed')
       }
-
       const data = await response.json()
       setTranscribedText(data.transcribed_text)
       setChapterId(data.chapter_id)
+      markDirty()
+      persistAdminSave()
     } catch (err) {
       setError('Failed to transcribe chapter. Please try again.')
       console.error(err)
+      setSaveStatus('error')
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleDownload = async () => {
+    markDirty()
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/book/download/${chapterId}`
@@ -92,11 +136,25 @@ export default function BookPage() {
     setTranscribedText('')
     setChapterId('')
     setError('')
+    markDirty()
+    persistAdminSave()
   }
+
+  // Dev-only admin save key hint
+  const devSaveKey = process.env.NODE_ENV !== 'production' && isAdmin
+    ? `book/${chapterId || 'current'}`
+    : null
 
   return (
     <main className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
+        {devSaveKey && (
+          <div style={{ fontSize: 12, color: '#888', marginBottom: 8, userSelect: 'all' }}>
+            <span style={{ background: '#f3f3f3', padding: '2px 6px', borderRadius: 4 }}>
+              [dev] admin save key: {devSaveKey}
+            </span>
+          </div>
+        )}
         <header className="mb-8">
           <div className="flex justify-between items-center">
             <div>
@@ -156,7 +214,7 @@ export default function BookPage() {
                 <input
                   type="text"
                   value={chapterName}
-                  onChange={(e) => setChapterName(e.target.value)}
+                  onChange={(e) => { setChapterName(e.target.value); markDirty(); }}
                   placeholder="e.g., Chapter 1: The Beginning"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg
                     focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -210,6 +268,13 @@ export default function BookPage() {
                   'Transcribe Chapter'
                 )}
               </button>
+              {isAdmin && (
+                <div className="mt-2 text-xs text-gray-500">
+                  {saveStatus === 'saving' && 'Saving...'}
+                  {saveStatus === 'saved' && 'Saved'}
+                  {saveStatus === 'error' && 'Save failed'}
+                </div>
+              )}
             </div>
 
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">

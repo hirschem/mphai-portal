@@ -1,3 +1,12 @@
+# Pre-Commit Preflight
+
+Before every commit, run the preflight script to verify the project is ready to ship:
+
+```powershell
+scripts/preflight.ps1
+```
+
+Then review and check off each item in PRECOMMIT_CHECKLIST.md.
 # MPH Handwriting Pipeline
 
 Transform handwritten residential construction proposals into professional, customer-ready documents.

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { listProposals, deleteProposal } from '@/lib/api'
+import { apiFetch } from '@/lib/apiClient'
 import Link from 'next/link'
 
 interface Proposal {
@@ -25,25 +25,28 @@ export default function HistoryPage() {
   const loadProposals = async () => {
     try {
       setLoading(true)
-      const data = await listProposals()
-      setProposals(data.proposals)
-    } catch (err: any) {
-      setError(err.message || 'Failed to load proposals')
+      const { ok, data, error } = await apiFetch('/api/history/list');
+      if (!ok) throw error || new Error('Failed to load proposals');
+      const list = data as { proposals?: Proposal[] };
+      setProposals(list.proposals ?? []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load proposals');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   const handleDelete = async (sessionId: string) => {
     if (!confirm('Are you sure you want to delete this proposal?')) {
-      return
+      return;
     }
-
     try {
-      await deleteProposal(sessionId)
-      setProposals(proposals.filter(p => p.session_id !== sessionId))
-    } catch (err: any) {
-      alert('Failed to delete proposal')
+      const { ok, error } = await apiFetch(`/api/history/${sessionId}`, { method: 'DELETE' });
+      if (!ok) throw error || new Error('Failed to delete proposal');
+      setProposals(proposals.filter(p => p.session_id !== sessionId));
+    } catch (err: unknown) {
+      console.error(err);
+      alert('Failed to delete proposal');
     }
   }
 
