@@ -15,10 +15,13 @@ async def main():
             if f.exists():
                 f.unlink()
                 print(f"[DEBUG] deleted old file: {os.path.abspath(f)}")
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    session_id = f"stress_test_{timestamp}"
     export_service = ExportService()
     proposal_data = ProposalData()  # STRESS_TEST block overrides fields
     path = await export_service.export_document(
-        "STRESS_TEST",
+        session_id,
         proposal_data,
         format="pdf",
         document_type="invoice"

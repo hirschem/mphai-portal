@@ -21,7 +21,9 @@ class ExportService:
         """Export proposal/invoice to PDF using MPH template"""
 
         # --- TEMP STRESS TEST DATA ---
-        if session_id == "STRESS_TEST":
+        import os
+        is_stress = session_id.startswith("stress_test_") or os.environ.get("STRESS_TEST_DEBUG", "0") == "1"
+        if is_stress:
             proposal_data = ProposalData(
                 client_name="Jonathan A. Richardson III",
                 project_address="12345 South Evergreen Terrace, Unit 204B",
@@ -50,8 +52,33 @@ class ExportService:
         """Generate PDF by overlaying data onto MPH template, with header for proposal/invoice
         If STRESS_TEST_DEBUG=1 and session_id=="STRESS_TEST", also write overlay-only and template-only PDFs for inspection.
         """
+        def wrap_text_to_width(text, font_name, font_size, max_width):
+            from reportlab.pdfbase import pdfmetrics
+            words = text.split()
+            lines = []
+            current_line = ""
+            for word in words:
+                test_line = (current_line + " " + word).strip() if current_line else word
+                if pdfmetrics.stringWidth(test_line, font_name, font_size) <= max_width:
+                    current_line = test_line
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                    # If the word itself is too long, hard-split it
+                    while pdfmetrics.stringWidth(word, font_name, font_size) > max_width:
+                        for i in range(1, len(word)+1):
+                            if pdfmetrics.stringWidth(word[:i], font_name, font_size) > max_width:
+                                lines.append(word[:i-1])
+                                word = word[i-1:]
+                                break
+                        else:
+                            break
+                    current_line = word
+            if current_line:
+                lines.append(current_line)
+            return lines
         import os
-        debug = os.environ.get("STRESS_TEST_DEBUG", "0") == "1" and session_id == "STRESS_TEST"
+        debug = session_id.startswith("stress_test_") or os.environ.get("STRESS_TEST_DEBUG", "0") == "1"
         # Create overlay with proposal/invoice data
         packet = io.BytesIO()
         can = canvas.Canvas(packet, pagesize=letter)
@@ -122,29 +149,36 @@ class ExportService:
         # Start position for content below headers
         left_margin = 1.0 * inch
         amount_column_x = 7.5 * inch
+        # Use template anchor for divider X
+        from app.templates.generate_invoice_templates import compute_pg1_layout_positions
+        pg1_pos = compute_pg1_layout_positions()
+        divider_x = pg1_pos.get("amount_divider_x", amount_column_x - 8)  # fallback for legacy
+        gutter = 6  # pts, minimal gutter before divider
         y_position = height - 4.0 * inch
         bottom_margin = 1.5 * inch
         # Line Items (with true wrapping)
         if getattr(data, "line_items", None) and len(data.line_items) > 0:
             line_y = y_position
-            can.setFont("Helvetica", 11)
-            padding = 8  # pts, ~0.11 inch, to avoid collision with amount column
-            available_width = amount_column_x - left_margin - padding
+            font_name = "Helvetica"
+            font_size = 11
+            can.setFont(font_name, font_size)
+            desc_left_x = left_margin
+            desc_max_width = divider_x - gutter - desc_left_x
             line_leading = 0.20 * inch
             for idx, item in enumerate(data.line_items):
-                if getattr(item, "description", None):
-                    desc_text = str(item.description)
-                    # Use reportlab's simpleSplit for width-based wrapping
-                    from reportlab.lib.utils import simpleSplit
-                    wrapped_lines = simpleSplit(desc_text, "Helvetica", 11, available_width)
+                desc = item.get("description") if isinstance(item, dict) else getattr(item, "description", None)
+                amount = item.get("amount") if isinstance(item, dict) else getattr(item, "amount", None)
+                if desc:
+                    desc_text = str(desc)
+                    wrapped_lines = wrap_text_to_width(desc_text, font_name, font_size, desc_max_width)
                     for i, line in enumerate(wrapped_lines):
                         if line_y < bottom_margin + line_leading:
                             can.showPage()
-                            can.setFont("Helvetica", 11)
-                            line_y = height - 1.5 * inch
-                        can.drawString(left_margin, line_y, line)
-                        if i == 0 and getattr(item, "amount", None):
-                            can.drawRightString(amount_column_x, line_y, f"${item.amount:.2f}")
+                            can.setFont(font_name, font_size)
+                            line_y = y_position  # reset to body start, not header
+                        can.drawString(desc_left_x, line_y, line)
+                        if i == 0 and amount is not None:
+                            can.drawRightString(amount_column_x, line_y, f"${amount:.2f}")
                         line_y -= line_leading
                 else:
                     # Still decrement line_y for empty description
