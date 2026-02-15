@@ -21,13 +21,22 @@ export async function apiFetchOptional<T = unknown>(
   options: RequestInit = {}
 ): Promise<{ ok: boolean; status: number; data: T | null; error: unknown; requestId: string | null }> {
   const url = path.startsWith('http') ? path : `${API_URL}${path}`;
-  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  const isFormData = isFormDataBody(options.body);
   const headers = new Headers(options.headers ?? undefined);
   const token = getAuthToken();
   if (token && shouldAttachAuth(url)) headers.set("Authorization", `Bearer ${token}`);
+  // TEMP: Add debug header for transcribe upload proof
+  if (path === "/api/transcribe/upload") {
+    headers.set("x-mphai-apifetch", "v2-formdata-proof");
+    // eslint-disable-next-line no-console
+    console.log("[UPLOAD BODY TAG]", Object.prototype.toString.call(options.body));
+  }
   let fetchBody;
   if (isFormData) {
-    headers.delete("Content-Type");
+    // Remove ANY content-type header (case-insensitive)
+    for (const k of Array.from(headers.keys())) {
+      if (k.toLowerCase() === "content-type") headers.delete(k);
+    }
     fetchBody = options.body;
   } else {
     if (options.body != null && !headers.has("Content-Type")) {
@@ -119,13 +128,22 @@ export async function apiFetch<T = unknown>(
   options: RequestInit = {}
 ): Promise<{ ok: boolean; status: number; data: T; error: unknown; requestId: string | null }> {
   const url = path.startsWith('http') ? path : `${API_URL}${path}`;
-  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  const isFormData = isFormDataBody(options.body);
   const headers = new Headers(options.headers ?? undefined);
   const token = getAuthToken();
   if (token && shouldAttachAuth(url)) headers.set("Authorization", `Bearer ${token}`);
+  // TEMP: Add debug header for transcribe upload proof
+  if (path === "/api/transcribe/upload") {
+    headers.set("x-mphai-apifetch", "v2-formdata-proof");
+    // eslint-disable-next-line no-console
+    console.log("[UPLOAD BODY TAG]", Object.prototype.toString.call(options.body));
+  }
   let fetchBody;
   if (isFormData) {
-    headers.delete("Content-Type");
+    // Remove ANY content-type header (case-insensitive)
+    for (const k of Array.from(headers.keys())) {
+      if (k.toLowerCase() === "content-type") headers.delete(k);
+    }
     fetchBody = options.body;
   } else {
     if (options.body != null && !headers.has("Content-Type")) {
