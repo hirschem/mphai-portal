@@ -1,6 +1,8 @@
 # Amount column x constant for table alignment
 
 from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+SOFT_BLACK = colors.HexColor("#222222")
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
@@ -81,8 +83,10 @@ def generate_pg1():
 
     # Header labels
     c.setFont("Helvetica-Bold", 12)
+    c.setFillColor(SOFT_BLACK)
     c.drawString(left_x + 6, header_baseline_y, "Description")
     c.drawString(amount_divider_x + 8, header_baseline_y, "Amount")
+    c.setFillColorRGB(0, 0, 0)  # reset to black for subsequent text
 
     # Single horizontal divider line (table header line)
     c.setLineWidth(1)
