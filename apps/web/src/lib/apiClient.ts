@@ -21,23 +21,38 @@ export async function apiFetchOptional<T = unknown>(
   options: RequestInit = {}
 ): Promise<{ ok: boolean; status: number; data: T | null; error: unknown; requestId: string | null }> {
   const url = path.startsWith('http') ? path : `${API_URL}${path}`;
-  const isFormData = isFormDataBody(options.body);
-  const headers = buildHeaders(url, (options.headers as Record<string, string>) || {});
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  const headers = new Headers(options.headers ?? undefined);
+  const token = getAuthToken();
+  if (token && shouldAttachAuth(url)) headers.set("Authorization", `Bearer ${token}`);
+  let fetchBody;
   if (isFormData) {
-    stripContentType(headers);
-  } else if (options.body != null && !hasContentType(headers)) {
-    headers["Content-Type"] = "application/json";
+    headers.delete("Content-Type");
+    fetchBody = options.body;
+  } else {
+    if (options.body != null && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    fetchBody = (options.body && typeof options.body === "object"
+      && !(options.body instanceof Blob)
+      && !(options.body instanceof ArrayBuffer))
+      ? JSON.stringify(options.body)
+      : options.body;
   }
-  const fetchBody = isFormData
-    ? (options.body as FormData)
-    : options.body != null
-    ? JSON.stringify(options.body)
-    : undefined;
+  // TEMP DEBUG (remove after confirmed)
+  // eslint-disable-next-line no-console
+  console.log("[apiFetchOptional]", { path, isFormData, contentType: headers.get("Content-Type"), bodyType: options.body?.constructor?.name ?? null });
   let resp: Response;
   let requestId: string | null = null;
   let text = '';
   let data: T = undefined as unknown as T;
   try {
+    // TEMP DEBUG LOGS
+    const debugHeaders = new Headers(headers);
+    console.log('[apiFetchOptional] path:', path);
+    console.log('[apiFetchOptional] body instanceof FormData:', isFormDataBody(options.body));
+    console.log('[apiFetchOptional] headers.get("Content-Type"):', debugHeaders.get('Content-Type'));
+    console.log('[apiFetchOptional] body?.constructor?.name:', options.body?.constructor?.name);
     resp = await fetch(url, { ...options, headers, body: fetchBody });
     requestId = resp.headers.get('x-request-id') ?? null;
     text = await resp.text();
@@ -104,18 +119,29 @@ export async function apiFetch<T = unknown>(
   options: RequestInit = {}
 ): Promise<{ ok: boolean; status: number; data: T; error: unknown; requestId: string | null }> {
   const url = path.startsWith('http') ? path : `${API_URL}${path}`;
-  const isFormData = isFormDataBody(options.body);
-  const headers = buildHeaders(url, (options.headers as Record<string, string>) || {});
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  const headers = new Headers(options.headers ?? undefined);
+  const token = getAuthToken();
+  if (token && shouldAttachAuth(url)) headers.set("Authorization", `Bearer ${token}`);
+  let fetchBody;
   if (isFormData) {
-    stripContentType(headers);
-  } else if (options.body != null && !hasContentType(headers)) {
-    headers["Content-Type"] = "application/json";
+    headers.delete("Content-Type");
+    fetchBody = options.body;
+  } else {
+    if (options.body != null && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    fetchBody =
+      options.body &&
+      typeof options.body === "object" &&
+      !(options.body instanceof Blob) &&
+      !(options.body instanceof ArrayBuffer)
+        ? JSON.stringify(options.body)
+        : options.body;
   }
-  const fetchBody = isFormData
-    ? (options.body as FormData)
-    : options.body != null
-    ? JSON.stringify(options.body)
-    : undefined;
+  // TEMP DEBUG (remove after confirmed)
+  // eslint-disable-next-line no-console
+  console.log("[apiFetch]", { path, isFormData, contentType: headers.get("Content-Type"), bodyType: options.body?.constructor?.name ?? null });
   let resp: Response;
   let requestId: string | null = null;
   let text = '';
