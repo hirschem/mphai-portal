@@ -71,8 +71,8 @@ def generate_pg1():
     # Draw Date/Bill To labels lighter
     c.setFont("Helvetica", 10)
     c.setFillColorRGB(0.2, 0.2, 0.2)
-    c.drawString(left_x, date_label_y, "Date:")
-    c.drawString(left_x, billto_label_y, "Bill To:")
+    c.drawString(left_x + 6, date_label_y, "Date:")
+    c.drawString(left_x + 6, billto_label_y, "Bill To:")
     c.setFillColorRGB(0, 0, 0)  # reset to black for headers/table
 
 
