@@ -13,6 +13,9 @@ file_manager = FileManager()
 
 
 class ExportService:
+    DESC_PAD_R = 32  # pts, right padding for description column
+    AMT_PAD_R = 12  # pts, right padding for amount column
+    DESC_COLUMN_PADDING = 14  # pts, intentional buffer from divider
     def __init__(self):
         # No static template file; will generate dynamically
         pass
@@ -54,20 +57,21 @@ class ExportService:
         """
         def wrap_text_to_width(text, font_name, font_size, max_width):
             from reportlab.pdfbase import pdfmetrics
+            safe_width = max_width - 2  # internal buffer to prevent borderline overflow
             words = text.split()
             lines = []
             current_line = ""
             for word in words:
                 test_line = (current_line + " " + word).strip() if current_line else word
-                if pdfmetrics.stringWidth(test_line, font_name, font_size) <= max_width:
+                if pdfmetrics.stringWidth(test_line, font_name, font_size) <= safe_width:
                     current_line = test_line
                 else:
                     if current_line:
                         lines.append(current_line)
                     # If the word itself is too long, hard-split it
-                    while pdfmetrics.stringWidth(word, font_name, font_size) > max_width:
+                    while pdfmetrics.stringWidth(word, font_name, font_size) > safe_width:
                         for i in range(1, len(word)+1):
-                            if pdfmetrics.stringWidth(word[:i], font_name, font_size) > max_width:
+                            if pdfmetrics.stringWidth(word[:i], font_name, font_size) > safe_width:
                                 lines.append(word[:i-1])
                                 word = word[i-1:]
                                 break
@@ -76,7 +80,23 @@ class ExportService:
                     current_line = word
             if current_line:
                 lines.append(current_line)
-            return lines
+            # Post-pass: guarantee all lines <= safe_width
+            i = 0
+            while i < len(lines):
+                line = lines[i]
+                while pdfmetrics.stringWidth(line, font_name, font_size) > safe_width and ' ' in line:
+                    words = line.split()
+                    if len(words) == 1:
+                        break
+                    last_word = words.pop()
+                    lines[i] = ' '.join(words)
+                    if i+1 < len(lines):
+                        lines[i+1] = last_word + ' ' + lines[i+1]
+                    else:
+                        lines.append(last_word)
+                    line = lines[i]
+                i += 1
+            return [l for l in lines if l.strip()]
         import os
         debug = session_id.startswith("stress_test_") or os.environ.get("STRESS_TEST_DEBUG", "0") == "1"
         # Create overlay with proposal/invoice data
@@ -148,37 +168,68 @@ class ExportService:
                 can.drawString(5.5 * inch, height - 2.3 * inch, f"Due: {data.due_date}")
         # Start position for content below headers
         left_margin = 1.0 * inch
-        amount_column_x = 7.5 * inch
-        # Use template anchor for divider X
         from app.templates.generate_invoice_templates import compute_pg1_layout_positions
         pg1_pos = compute_pg1_layout_positions()
-        divider_x = pg1_pos.get("amount_divider_x", amount_column_x - 8)  # fallback for legacy
+        divider_x = pg1_pos["amount_divider_x"]  # left edge of Amount column
+        amount_right_x = pg1_pos["amount_right_x"]  # right-aligned x for amounts
         gutter = 6  # pts, minimal gutter before divider
-        y_position = height - 4.0 * inch
+        # Use template anchor for line item start Y
+        y_position = pg1_pos.get("body_top_y") or pg1_pos.get("items_start_y") or pg1_pos.get("table_body_top_y")
+        if y_position is None:
+            # Fallback to PAGE1_BODY_TOP_Y if not present in pg1_pos
+            from app.templates.generate_invoice_templates import PAGE1_BODY_TOP_Y
+            y_position = PAGE1_BODY_TOP_Y
         bottom_margin = 1.5 * inch
         # Line Items (with true wrapping)
         if getattr(data, "line_items", None) and len(data.line_items) > 0:
-            line_y = y_position
+            line_y = y_position - 18  # increased visual offset for spacing below header
             font_name = "Helvetica"
             font_size = 11
             can.setFont(font_name, font_size)
             desc_left_x = left_margin
-            desc_max_width = divider_x - gutter - desc_left_x
             line_leading = 0.20 * inch
+            gap = 12  # pts, gap between description and amount
+            gutter = 14  # pts, gutter between divider and description
+            amt_font = "Helvetica"
+            amt_size = 11
             for idx, item in enumerate(data.line_items):
                 desc = item.get("description") if isinstance(item, dict) else getattr(item, "description", None)
                 amount = item.get("amount") if isinstance(item, dict) else getattr(item, "amount", None)
                 if desc:
                     desc_text = str(desc)
+                    if amount is not None:
+                        from reportlab.pdfbase import pdfmetrics
+                        amount_str = f"${amount:.2f}"
+                        amount_width = pdfmetrics.stringWidth(amount_str, amt_font, amt_size)
+                        amount_left_x = amount_right_x - amount_width
+                        desc_max_width = (amount_left_x - gap) - desc_left_x
+                    else:
+                        desc_max_width = divider_x - desc_left_x - self.DESC_PAD_R
+                    wrap_limit_x = divider_x - self.DESC_PAD_R
+                    # Debug: draw magenta guide and print wrap info
+                    import os
+                    if os.environ.get("STRESS_TEST_DEBUG", "0") == "1":
+                        can.saveState()
+                        can.setStrokeColorRGB(1, 0, 1)  # magenta
+                        can.setLineWidth(1)
+                        can.line(wrap_limit_x, line_y + 20, wrap_limit_x, line_y - 80)
+                        can.restoreState()
+                        from reportlab.pdfbase import pdfmetrics
+                        print(f"[DEBUG] divider_x={divider_x:.2f} wrap_limit_x={wrap_limit_x:.2f} desc_left_x={desc_left_x:.2f} desc_max_width={desc_max_width:.2f}")
                     wrapped_lines = wrap_text_to_width(desc_text, font_name, font_size, desc_max_width)
                     for i, line in enumerate(wrapped_lines):
                         if line_y < bottom_margin + line_leading:
                             can.showPage()
                             can.setFont(font_name, font_size)
                             line_y = y_position  # reset to body start, not header
+                        can.setFont(font_name, font_size)
                         can.drawString(desc_left_x, line_y, line)
+                        if os.environ.get("STRESS_TEST_DEBUG", "0") == "1" and i == 0:
+                            from reportlab.pdfbase import pdfmetrics
+                            line_width = pdfmetrics.stringWidth(line, font_name, font_size)
+                            print(f"[DEBUG] first_line_width={line_width:.2f}")
                         if i == 0 and amount is not None:
-                            can.drawRightString(amount_column_x, line_y, f"${amount:.2f}")
+                            can.drawRightString(amount_right_x - self.AMT_PAD_R, line_y, amount_str)
                         line_y -= line_leading
                 else:
                     # Still decrement line_y for empty description
@@ -292,7 +343,7 @@ class ExportService:
         total_amount = getattr(data, "total", 0) or 0
         can.setFont("Helvetica-Bold", 14)
         can.drawString(5.5 * inch, 1 * inch, "Total:")
-        can.drawRightString(amount_column_x, 1 * inch, f"${total_amount:.2f}")
+        can.drawRightString(amount_right_x - self.AMT_PAD_R, 1 * inch, f"${total_amount:.2f}")
         can.save()
         packet.seek(0)
         # Merge with template if it exists

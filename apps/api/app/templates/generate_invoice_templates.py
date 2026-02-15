@@ -1,3 +1,5 @@
+# Amount column divider offset (single source)
+AMOUNT_DIVIDER_OFFSET = 70
 
 
 
@@ -18,11 +20,19 @@ def compute_pg1_layout_positions():
     date_value_y = date_label_y
     billto_value_x = PG1_BILLTO_VALUE_X
     billto_value_y = billto_label_y
+    # Amount column anchors (single-sourced)
+    amount_divider_x = MARGIN_R - AMOUNT_DIVIDER_OFFSET
+    amount_header_x = amount_divider_x + 8  # for left-aligned "Amount" header label
+    amount_right_x = MARGIN_R  # for right-aligned amount values
     return {
         "date_value_x": date_value_x,
         "date_value_y": date_value_y,
         "billto_value_x": billto_value_x,
         "billto_value_y": billto_value_y,
+        "amount_divider_x": amount_divider_x,
+        "amount_header_x": amount_header_x,
+        "amount_right_x": amount_right_x,
+        "body_top_y": PAGE1_BODY_TOP_Y,  # start of table body/line items
     }
 # ...existing code...
 # ...existing code...
@@ -127,9 +137,8 @@ def generate_pg1():
             y = billto_label_y - i * PG1_BILLTO_LINE_HEIGHT
             c.drawString(PG1_BILLTO_VALUE_X, y, f"[BILLTO_LINE_{i+1}]")
 
-
-    # Vertical divider for Amount column (starts exactly at divider line)
-    amount_divider_x = right_x - 70
+    # Vertical divider for Amount column (single-sourced)
+    amount_divider_x = MARGIN_R - AMOUNT_DIVIDER_OFFSET
 
     # Header labels
     c.setFont("Helvetica-Bold", 12)
@@ -143,8 +152,7 @@ def generate_pg1():
     c.setStrokeColorRGB(0, 0, 0)
     c.line(left_x - extension, divider_y, right_x + extension, divider_y)
 
-    # Vertical divider for Amount column (starts exactly at divider line)
-    amount_divider_x = right_x - 70
+    # Vertical divider for Amount column (single-sourced)
     c.line(amount_divider_x, divider_y, amount_divider_x, MARGIN_B)
 
     # Company contact block, all right-aligned
