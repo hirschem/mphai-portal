@@ -78,16 +78,19 @@ def create_app() -> FastAPI:
 
     # Wrap with pure ASGI middleware last, so all entrypoints use the wrapped app
     if settings.ENFORCE_REQUEST_SIZE_LIMIT:
-        return RequestSizeLimitMiddleware(
+        wrapped_app = RequestSizeLimitMiddleware(
             app,
             max_bytes=settings.MAX_REQUEST_BYTES,
         )
+        return wrapped_app
     else:
         return app
 
-# Exports for production
-fastapi_app = create_app()  # This is the fully constructed app (with or without wrapper)
-app = fastapi_app
+_base_app = create_app()
+if hasattr(_base_app, '__call__') and hasattr(_base_app, 'add_middleware'):
+    app = _base_app
+else:
+    app = _base_app
 from app.middleware.error_handlers import add_global_error_handlers
 from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.enforce_request_id_json_errors import EnforceRequestIDInJSONErrorsMiddleware
@@ -168,13 +171,16 @@ async def root():
 async def health():
     return {"status": "ok"}
 
-# Wrap with pure ASGI middleware last, so all entrypoints use the wrapped app
-if settings.ENFORCE_REQUEST_SIZE_LIMIT:
-    app = RequestSizeLimitMiddleware(
-        fastapi_app,
-        max_bytes=settings.MAX_REQUEST_BYTES,
-    )
-else:
-    app = fastapi_app
+def maybe_wrap_app(fastapi_app: FastAPI):
+    settings = get_settings()
+    if settings.ENFORCE_REQUEST_SIZE_LIMIT:
+        return RequestSizeLimitMiddleware(
+            fastapi_app,
+            max_bytes=settings.MAX_REQUEST_BYTES,
+        )
+    return fastapi_app
+
+fastapi_app = create_app()          # always FastAPI
+app = maybe_wrap_app(fastapi_app)   # what Uvicorn should serve
 
 
