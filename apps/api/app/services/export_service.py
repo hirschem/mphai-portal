@@ -19,6 +19,23 @@ class ExportService:
     
     async def export_document(self, session_id: str, proposal_data: ProposalData, professional_text: str = "", format: str = "pdf", document_type: str = "proposal") -> Path:
         """Export proposal/invoice to PDF using MPH template"""
+
+        # --- TEMP STRESS TEST DATA ---
+        if session_id == "STRESS_TEST":
+            proposal_data.client_name = "Jonathan A. Richardson III"
+            proposal_data.project_address = "12345 South Evergreen Terrace, Unit 204B"
+            proposal_data.line_items = [
+                type('LineItem', (), {"description": "Interior wall painting for all rooms, including ceilings, closets, and all trim surfaces. This description is intentionally long to test truncation at 80 characters.", "amount": 12345.67})(),
+                type('LineItem', (), {"description": "Exterior deck staining", "amount": 850.00})(),
+                type('LineItem', (), {"description": "Garage floor epoxy coating", "amount": 2250.00})(),
+                type('LineItem', (), {"description": "Window caulking and sealing", "amount": 350.00})(),
+            ]
+            proposal_data.total = 18950.75
+            proposal_data.invoice_number = "INV-2026-001"
+            proposal_data.due_date = "02/28/2026"
+            proposal_data.date = None  # forces fallback to today
+        # --- END TEMP STRESS TEST DATA ---
+
         output_path = file_manager.sessions_dir / session_id / f"{document_type}.{format}"
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if format == "pdf":
