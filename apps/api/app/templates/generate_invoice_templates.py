@@ -1,3 +1,31 @@
+
+
+
+from reportlab.lib.units import inch
+# --- Shared layout offsets for header/labels/values (no new numbers) ---
+HEADER_BASELINE_OFFSET = 7
+DATE_LABEL_OFFSET = 66
+BILLTO_LABEL_OFFSET = 24  # was 16; +8 pts for more space below Bill To
+DATE_VALUE_X_OFFSET = 0.41 * inch  # was 0.55; 0.55 - 0.14 = 0.41 (~10 pts less)
+BILLTO_VALUE_X_OFFSET = 0.61 * inch  # was 0.75; 0.75 - 0.14 = 0.61 (~10 pts less)
+
+def compute_pg1_layout_positions():
+    divider_y = PAGE1_BODY_TOP_Y
+    header_baseline_y = divider_y + HEADER_BASELINE_OFFSET
+    date_label_y = header_baseline_y + DATE_LABEL_OFFSET
+    billto_label_y = date_label_y - BILLTO_LABEL_OFFSET
+    date_value_x = PG1_DATE_VALUE_X
+    date_value_y = date_label_y
+    billto_value_x = PG1_BILLTO_VALUE_X
+    billto_value_y = billto_label_y
+    return {
+        "date_value_x": date_value_x,
+        "date_value_y": date_value_y,
+        "billto_value_x": billto_value_x,
+        "billto_value_y": billto_value_y,
+    }
+# ...existing code...
+# ...existing code...
 # Amount column x constant for table alignment
 
 from reportlab.lib.pagesizes import letter
@@ -32,6 +60,20 @@ MARGIN_R = PAGE_WIDTH - 1.0 * inch
 MARGIN_T = PAGE_HEIGHT - 1.0 * inch
 MARGIN_B = 1.0 * inch
 
+# === FINALIZED PAGE 1 ANCHORS FOR OVERLAY ===
+# These constants are used by the overlay to align dynamic values with the template
+# Do not change these unless the template layout changes
+PAGE1_DATE_VALUE_X = MARGIN_L + DATE_VALUE_X_OFFSET
+PAGE1_DATE_BASELINE_Y = PAGE1_BODY_TOP_Y + 66  # matches date_label_y
+PAGE1_BILLTO_VALUE_X = MARGIN_L + BILLTO_VALUE_X_OFFSET
+
+PAGE1_BILLTO_BASELINE_Y = PAGE1_DATE_BASELINE_Y - 16  # matches billto_label_y
+PG1_BILLTO_LINE_HEIGHT = 13  # pts, for multi-line Bill To (matches template y -= leading)
+
+# Alias for overlay/template shared X positions (for clarity and single-sourcing)
+PG1_BILLTO_VALUE_X = PAGE1_BILLTO_VALUE_X
+PG1_DATE_VALUE_X = PG1_BILLTO_VALUE_X  # Align Date value X with Bill To value X
+
 COMPANY_NAME = "MPH Construction & Painting"
 COMPANY_INFO = "[Address/Contact Here]"
 
@@ -52,7 +94,7 @@ def generate_pg1():
     extension = PAGE_WIDTH * 0.05
 
     divider_y = PAGE1_BODY_TOP_Y
-    header_baseline_y = divider_y + 7
+    header_baseline_y = divider_y + HEADER_BASELINE_OFFSET
 
     # Draw logo first (behind text)
     LEFT_PAD = -20
@@ -67,8 +109,8 @@ def generate_pg1():
     c.drawImage(logo, logo_x, logo_y, width=logo_w, height=logo_h, mask='auto', preserveAspectRatio=True)
 
     # Date/Bill To labels derived from header_baseline_y
-    date_label_y = header_baseline_y + 66
-    billto_label_y = date_label_y - 16
+    date_label_y = header_baseline_y + DATE_LABEL_OFFSET
+    billto_label_y = date_label_y - BILLTO_LABEL_OFFSET
 
     # Draw Date/Bill To labels lighter
     c.setFont("Helvetica", 10)
@@ -76,6 +118,14 @@ def generate_pg1():
     c.drawString(left_x + 6, date_label_y, "Date:")
     c.drawString(left_x + 6, billto_label_y, "Bill To:")
     c.setFillColorRGB(0, 0, 0)  # reset to black for headers/table
+
+    # Draw Date/Bill To value placeholders only in debug mode
+    if DEBUG_GUIDES:
+        c.setFont("Helvetica", 11)
+        c.drawString(PG1_DATE_VALUE_X, date_label_y, "[DATE_VALUE]")
+        for i in range(2):
+            y = billto_label_y - i * PG1_BILLTO_LINE_HEIGHT
+            c.drawString(PG1_BILLTO_VALUE_X, y, f"[BILLTO_LINE_{i+1}]")
 
 
     # Vertical divider for Amount column (starts exactly at divider line)
@@ -108,7 +158,7 @@ def generate_pg1():
     c.setFont('Helvetica-Bold', 13)
     c.drawRightString(right_x, y, COMPANY_NAME)
     c.setFont('Helvetica', 11)
-    leading = 13
+    leading = PG1_BILLTO_LINE_HEIGHT
     contact_lines = [
         "9426 Troon Village Way",
         "Lone Tree, CO 80124",
