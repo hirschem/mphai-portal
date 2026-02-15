@@ -66,7 +66,7 @@ def generate_pg1():
 
     # Date/Bill To labels derived from header_baseline_y
     date_label_y = header_baseline_y + 66
-    billto_label_y = header_baseline_y + 46
+    billto_label_y = date_label_y - 16
 
     # Draw Date/Bill To labels lighter
     c.setFont("Helvetica", 10)
