@@ -1,6 +1,7 @@
 import { API_CLIENT_BUILD_STAMP } from '@/lib/apiClient';
 console.log("API_CLIENT_BUILD_STAMP", API_CLIENT_BUILD_STAMP);
-'use client'
+"use client";
+// ...existing code...
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
