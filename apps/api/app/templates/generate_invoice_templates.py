@@ -104,7 +104,7 @@ def generate_pg1():
     c.setFont('Helvetica-Bold', 13)
     c.drawRightString(right_x, y, COMPANY_NAME)
     c.setFont('Helvetica', 11)
-    leading = 12
+    leading = 13
     contact_lines = [
         "9426 Troon Village Way",
         "Lone Tree, CO 80124",
