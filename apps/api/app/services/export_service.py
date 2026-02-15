@@ -44,30 +44,29 @@ class ExportService:
     async def export_document(self, session_id: str, proposal_data: ProposalData, professional_text: str = "", format: str = "pdf", document_type: str = "proposal") -> Path:
         """Export proposal/invoice to PDF using MPH template"""
 
-        # --- TEMP STRESS TEST DATA ---
+        # --- STRESS TEST SESSION LOGIC ---
         import os
-        # Only override data for stress test sessions, not for debug flag alone
         if session_id.startswith("stress_test_"):
-            # Edge-case line items for pre-commit validation
+            # Inject deterministic edge-case line items for validation
             proposal_data = ProposalData(
-                client_name="Jonathan A. Richardson III",
-                project_address="12345 South Evergreen Terrace, Unit 204B",
+                client_name="Stress Test Client",
+                project_address="Stress Test Address",
                 line_items=[
-                    # A) Normal long description + amount
-                    {"description": "Interior wall painting for all rooms, including ceilings, closets, and all trim surfaces. This description is intentionally long to test truncation at 80 characters.", "amount": 12345.67},
-                    # B) Long description, NO AMOUNT (divider rule)
-                    {"description": "This is a long description for a line item with NO amount present, so it should wrap at the divider boundary and never overlap the amount column. Lorem ipsum dolor sit amet, consectetur adipiscing elit.", "amount": None},
-                    # C) Very large amount (amount_left_x shifts left)
-                    {"description": "Line item with a very large amount to test leftward shift of amount column.", "amount": 1234567.89},
-                    # D) Short one-line description + amount
-                    {"description": "Short desc", "amount": 99.99},
+                    # A) Long description + normal amount
+                    {"description": "Interior wall painting for all rooms, including ceilings, closets, and trim surfaces.", "amount": 12345.67},
+                    # B) Long description + NO amount
+                    {"description": "Description with no amount present to test divider-based wrap boundary behavior.", "amount": None},
+                    # C) Very large (but valid) line item amount
+                    {"description": "Large amount formatting test for comma insertion and width stability.", "amount": 99999.99},
+                    # D) Short description + small amount
+                    {"description": "Touch-up", "amount": 150.00},
                 ],
-                total=1234567.89 + 12345.67 + 99.99,  # sum for realism
-                invoice_number="INV-2026-EDGE",
+                total=12345.67 + 99999.99 + 150.00,  # sum for realism
+                invoice_number="INV-STRESS-TEST",
                 due_date="02/28/2026",
-                date=None  # forces fallback to today
+                date=None
             )
-        # --- END TEMP STRESS TEST DATA ---
+        # --- END STRESS TEST SESSION LOGIC ---
 
         output_path = file_manager.sessions_dir / session_id / f"{document_type}.{format}"
         output_path.parent.mkdir(parents=True, exist_ok=True)

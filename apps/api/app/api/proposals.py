@@ -43,8 +43,9 @@ async def generate_proposal(request: ProposalRequest, auth_level: str = Depends(
     # If headers is a list (ASGI raw), wrap with Headers for .get()
     if isinstance(headers, list):
         headers = StarletteHeaders(raw=headers)
-    # Use X-Forwarded-For if present
-    xff = headers.get("X-Forwarded-For") or headers.get("x-forwarded-for")
+    # Use X-Forwarded-For if present (headers as dict for .get())
+    headers = dict(request.headers)
+    xff = headers.get("x-forwarded-for")
     ip = xff.split(",")[0].strip() if xff else client_host
     try:
         rate_limiter.check(ip, "generate", 3)
