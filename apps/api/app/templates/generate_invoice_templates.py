@@ -50,7 +50,7 @@ def generate_pg1():
     extension = PAGE_WIDTH * 0.05
 
     divider_y = PAGE1_BODY_TOP_Y
-    header_baseline_y = divider_y + 14
+    header_baseline_y = divider_y + 7
 
     # Draw logo first (behind text)
     LEFT_PAD = -20
@@ -65,16 +65,20 @@ def generate_pg1():
     c.drawImage(logo, logo_x, logo_y, width=logo_w, height=logo_h, mask='auto', preserveAspectRatio=True)
 
     # Date/Bill To labels derived from header_baseline_y
-    date_label_y = header_baseline_y + 42
-    billto_label_y = header_baseline_y + 22
+    date_label_y = header_baseline_y + 50
+    billto_label_y = header_baseline_y + 30
     c.setFont("Helvetica", 11)
     c.drawString(left_x, date_label_y, "Date:")
     c.drawString(left_x, billto_label_y, "Bill To:")
 
+
+    # Vertical divider for Amount column (starts exactly at divider line)
+    amount_divider_x = right_x - 70
+
     # Header labels
     c.setFont("Helvetica", 12)
     c.drawString(left_x, header_baseline_y, "Description")
-    c.drawRightString(right_x, header_baseline_y, "Amount")
+    c.drawString(amount_divider_x + 8, header_baseline_y, "Amount")
 
     # Single horizontal divider line (table header line)
     c.setLineWidth(1)
