@@ -1,3 +1,4 @@
+export const API_CLIENT_BUILD_STAMP = "apiclient-stamp-2026-02-15T21-xxZ-2b7f1c";
 function isFormDataBody(body: unknown): body is FormData {
   if (!body) return false;
   if (typeof FormData !== "undefined" && body instanceof FormData) return true;
