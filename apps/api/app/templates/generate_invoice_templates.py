@@ -21,7 +21,7 @@ PAGE1_LOGO_WIDTH = 2.3 * inch
 PAGE2_LOGO_WIDTH = 1.85 * inch
 PAGE1_HEADER_TOP = 10.65 * inch  # 731.8 pts
 PAGE2_HEADER_TOP = 10.30 * inch  # 741.6 pts
-PAGE1_BODY_TOP_Y = 9.05 * inch  # 651.6 pts
+PAGE1_BODY_TOP_Y = 8.75 * inch  # moved down 0.30 inch for more Bill To space
 PAGE2_BODY_TOP_Y = 9.65 * inch  # 694.8 pts
 
 # Margin constants for debug overlay
@@ -55,7 +55,7 @@ def generate_pg1():
     # Draw logo first (behind text)
     LEFT_PAD = -20
     TOP_PAD = -40
-    logo_w = PAGE1_LOGO_WIDTH * 1.7
+    logo_w = PAGE1_LOGO_WIDTH * 1.6  # slightly reduced for balance after table move
     logo = ImageReader(LOGO_PATH)
     iw, ih = logo.getSize()
     aspect = ih / iw
@@ -65,11 +65,15 @@ def generate_pg1():
     c.drawImage(logo, logo_x, logo_y, width=logo_w, height=logo_h, mask='auto', preserveAspectRatio=True)
 
     # Date/Bill To labels derived from header_baseline_y
-    date_label_y = header_baseline_y + 48
-    billto_label_y = header_baseline_y + 28
-    c.setFont("Helvetica", 11)
+    date_label_y = header_baseline_y + 66
+    billto_label_y = header_baseline_y + 46
+
+    # Draw Date/Bill To labels lighter
+    c.setFont("Helvetica", 10)
+    c.setFillColorRGB(0.2, 0.2, 0.2)
     c.drawString(left_x, date_label_y, "Date:")
     c.drawString(left_x, billto_label_y, "Bill To:")
+    c.setFillColorRGB(0, 0, 0)  # reset to black for headers/table
 
 
     # Vertical divider for Amount column (starts exactly at divider line)
@@ -90,8 +94,14 @@ def generate_pg1():
     c.line(amount_divider_x, divider_y, amount_divider_x, MARGIN_B)
 
     # Company contact block, all right-aligned
-    y = PAGE1_HEADER_TOP - 10
-    c.setFont('Helvetica-Bold', 14)
+    y = PAGE1_HEADER_TOP - 26
+
+    # INVOICE title stacked above company name
+    invoice_y = y + 16
+    c.setFont('Helvetica-Bold', 18)
+    c.drawRightString(right_x, invoice_y, "INVOICE")
+
+    c.setFont('Helvetica-Bold', 13)
     c.drawRightString(right_x, y, COMPANY_NAME)
     c.setFont('Helvetica', 11)
     leading = 12
