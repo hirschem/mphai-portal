@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
 from app.auth import require_auth
 from app.services.formatting_service import FormattingService
@@ -24,7 +24,7 @@ rate_limiter = RateLimiter()
 
 
 @router.post("/generate", response_model=ProposalResponse)
-async def generate_proposal(request: ProposalRequest, auth_level: str = Depends(require_auth)):
+async def generate_proposal(payload: ProposalRequest, request: Request, auth_level: str = Depends(require_auth)):
     """Convert transcribed text to professional proposal or invoice"""
     # Rate limit check (after validation/auth, before any side effects)
     # Extract headers and client IP for rate limiting
@@ -52,28 +52,28 @@ async def generate_proposal(request: ProposalRequest, auth_level: str = Depends(
     except HTTPException as exc:
         raise exc
 
-    document_type = getattr(request, "document_type", None) or "proposal"
-    logger.info(f"[generate_proposal] session_id={request.session_id} document_type={document_type}")
+    document_type = getattr(payload, "document_type", None) or "proposal"
+    logger.info(f"[generate_proposal] session_id={payload.session_id} document_type={document_type}")
     try:
         # Rewrite as professional construction proposal/invoice
-        professional_text = await get_formatting_service().rewrite_professional(request.raw_text)
-        logger.info(f"[rewrite_professional] session_id={request.session_id} done")
+        professional_text = await get_formatting_service().rewrite_professional(payload.raw_text)
+        logger.info(f"[rewrite_professional] session_id={payload.session_id} done")
 
         # Generate structured document (proposal/invoice)
         proposal_data = await get_formatting_service().structure_proposal(professional_text, document_type=document_type)
-        logger.info(f"[structure_proposal] session_id={request.session_id} done")
+        logger.info(f"[structure_proposal] session_id={payload.session_id} done")
 
         # Save to session with correct naming
-        await file_manager.save_proposal(request.session_id, proposal_data, document_type=document_type)
-        logger.info(f"[save_proposal] session_id={request.session_id} done")
+        await file_manager.save_proposal(payload.session_id, proposal_data, document_type=document_type)
+        logger.info(f"[save_proposal] session_id={payload.session_id} done")
 
         # Generate PDF with correct naming and header
-        await export_service.export_document(request.session_id, proposal_data, professional_text, "pdf", document_type=document_type)
-        logger.info(f"[export_document] session_id={request.session_id} done")
+        await export_service.export_document(payload.session_id, proposal_data, professional_text, "pdf", document_type=document_type)
+        logger.info(f"[export_document] session_id={payload.session_id} done")
 
         # Backward compatible: proposal_data, new: document_data, document_type
         return ProposalResponse(
-            session_id=request.session_id,
+            session_id=payload.session_id,
             professional_text=professional_text,
             proposal_data=proposal_data,
             document_data=proposal_data,
