@@ -13,9 +13,30 @@ file_manager = FileManager()
 
 
 class ExportService:
-    DESC_PAD_R = 32  # pts, right padding for description column
+    @staticmethod
+    def format_money(value) -> str:
+        """
+        Return money formatted with commas and 2 decimals, prefixed with '$'.
+        Accepts: int/float/Decimal/str (like "1234.5" or "$1234.50").
+        Returns: "$1,234.50". If value is None or empty, returns ''.
+        """
+        if value is None or value == "":
+            return ""
+        from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+        s = str(value).replace("$", "").replace(",", "").strip()
+        try:
+            num = Decimal(s)
+        except (InvalidOperation, ValueError):
+            return str(value)
+        # Clamp to max allowed value for rendering
+        max_amt = Decimal("999999.99")
+        if abs(num) > max_amt:
+            num = max_amt.copy_sign(num)
+        num = num.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return f"${num:,.2f}"
+    DESC_PAD_R = 36  # pts, right padding for description column (was 32, +4 for earlier wrap)
     AMT_PAD_R = 12  # pts, right padding for amount column
-    DESC_COLUMN_PADDING = 14  # pts, intentional buffer from divider
+    DESC_AMT_GAP = 16  # pts, gap between description and amount text when amount exists (was 12, +4 for earlier wrap)
     def __init__(self):
         # No static template file; will generate dynamically
         pass
@@ -25,19 +46,24 @@ class ExportService:
 
         # --- TEMP STRESS TEST DATA ---
         import os
-        is_stress = session_id.startswith("stress_test_") or os.environ.get("STRESS_TEST_DEBUG", "0") == "1"
-        if is_stress:
+        # Only override data for stress test sessions, not for debug flag alone
+        if session_id.startswith("stress_test_"):
+            # Edge-case line items for pre-commit validation
             proposal_data = ProposalData(
                 client_name="Jonathan A. Richardson III",
                 project_address="12345 South Evergreen Terrace, Unit 204B",
                 line_items=[
+                    # A) Normal long description + amount
                     {"description": "Interior wall painting for all rooms, including ceilings, closets, and all trim surfaces. This description is intentionally long to test truncation at 80 characters.", "amount": 12345.67},
-                    {"description": "Exterior deck staining", "amount": 850.00},
-                    {"description": "Garage floor epoxy coating", "amount": 2250.00},
-                    {"description": "Window caulking and sealing", "amount": 350.00},
+                    # B) Long description, NO AMOUNT (divider rule)
+                    {"description": "This is a long description for a line item with NO amount present, so it should wrap at the divider boundary and never overlap the amount column. Lorem ipsum dolor sit amet, consectetur adipiscing elit.", "amount": None},
+                    # C) Very large amount (amount_left_x shifts left)
+                    {"description": "Line item with a very large amount to test leftward shift of amount column.", "amount": 1234567.89},
+                    # D) Short one-line description + amount
+                    {"description": "Short desc", "amount": 99.99},
                 ],
-                total=18950.75,
-                invoice_number="INV-2026-001",
+                total=1234567.89 + 12345.67 + 99.99,  # sum for realism
+                invoice_number="INV-2026-EDGE",
                 due_date="02/28/2026",
                 date=None  # forces fallback to today
             )
@@ -98,7 +124,7 @@ class ExportService:
                 i += 1
             return [l for l in lines if l.strip()]
         import os
-        debug = session_id.startswith("stress_test_") or os.environ.get("STRESS_TEST_DEBUG", "0") == "1"
+        debug = os.environ.get("STRESS_TEST_DEBUG", "0") == "1"
         # Create overlay with proposal/invoice data
         packet = io.BytesIO()
         can = canvas.Canvas(packet, pagesize=letter)
@@ -117,13 +143,17 @@ class ExportService:
         can.setFont(label_font, label_size)
         # Use template-derived coordinates for Date/Bill To values
         from app.templates.generate_invoice_templates import compute_pg1_layout_positions
-        pg1_pos = compute_pg1_layout_positions()
+        pg1_pos = compute_pg1_layout_positions()  # SINGLE CALL
+        # Single-source all anchors and paddings
         date_value_x = pg1_pos["date_value_x"]
         date_value_y = pg1_pos["date_value_y"]
         billto_value_x = pg1_pos["billto_value_x"]
         billto_value_y = pg1_pos["billto_value_y"]
+        divider_x = pg1_pos["amount_divider_x"]
+        amount_right_x = pg1_pos.get("amount_right_x") or pg1_pos.get("amount_value_x")
+        items_start_y = pg1_pos.get("body_top_y") or pg1_pos.get("items_start_y") or pg1_pos.get("table_body_top_y")
         if debug:
-            print(f"[DEBUG] Overlay X: date_value_x={date_value_x:.2f} billto_value_x={billto_value_x:.2f}")
+            print(f"[DEBUG] Anchors: divider_x={divider_x:.2f} amount_right_x={amount_right_x:.2f} items_start_y={items_start_y:.2f}")
 
         # Date value (from data or fallback to today)
         date_val = getattr(data, "date", None)
@@ -168,13 +198,8 @@ class ExportService:
                 can.drawString(5.5 * inch, height - 2.3 * inch, f"Due: {data.due_date}")
         # Start position for content below headers
         left_margin = 1.0 * inch
-        from app.templates.generate_invoice_templates import compute_pg1_layout_positions
-        pg1_pos = compute_pg1_layout_positions()
-        divider_x = pg1_pos["amount_divider_x"]  # left edge of Amount column
-        amount_right_x = pg1_pos["amount_right_x"]  # right-aligned x for amounts
-        gutter = 6  # pts, minimal gutter before divider
         # Use template anchor for line item start Y
-        y_position = pg1_pos.get("body_top_y") or pg1_pos.get("items_start_y") or pg1_pos.get("table_body_top_y")
+        y_position = items_start_y
         if y_position is None:
             # Fallback to PAGE1_BODY_TOP_Y if not present in pg1_pos
             from app.templates.generate_invoice_templates import PAGE1_BODY_TOP_Y
@@ -188,34 +213,54 @@ class ExportService:
             can.setFont(font_name, font_size)
             desc_left_x = left_margin
             line_leading = 0.20 * inch
-            gap = 12  # pts, gap between description and amount
-            gutter = 14  # pts, gutter between divider and description
-            amt_font = "Helvetica"
-            amt_size = 11
+            # --- Amount column max width logic ---
+            MAX_LINE_ITEM_AMOUNT_STR = "$99,999.99"
+            MAX_TOTAL_AMOUNT_STR = "$999,999.99"  # for totals if needed
+            from reportlab.pdfbase import pdfmetrics
+            max_line_amt_width = pdfmetrics.stringWidth(MAX_LINE_ITEM_AMOUNT_STR, font_name, font_size)
+            amount_left_x_fixed = amount_right_x - max_line_amt_width
             for idx, item in enumerate(data.line_items):
                 desc = item.get("description") if isinstance(item, dict) else getattr(item, "description", None)
                 amount = item.get("amount") if isinstance(item, dict) else getattr(item, "amount", None)
                 if desc:
                     desc_text = str(desc)
+                    # --- Unified wrap boundary logic with fixed max amount width ---
                     if amount is not None:
-                        from reportlab.pdfbase import pdfmetrics
-                        amount_str = f"${amount:.2f}"
-                        amount_width = pdfmetrics.stringWidth(amount_str, amt_font, amt_size)
-                        amount_left_x = amount_right_x - amount_width
-                        desc_max_width = (amount_left_x - gap) - desc_left_x
+                        # Clamp and warn if needed
+                        from decimal import Decimal, InvalidOperation
+                        try:
+                            amt_val = Decimal(str(amount).replace("$", "").replace(",", "").strip())
+                        except (InvalidOperation, ValueError):
+                            amt_val = None
+                        max_amt = Decimal("999999.99")
+                        if amt_val is not None and abs(amt_val) > max_amt:
+                            if debug:
+                                print(f"[DEBUG][WARN] [row {idx}] amount {amt_val} exceeds max; clamped to {max_amt}")
+                        amount_str = self.format_money(amount)
+                        wrap_limit_x = amount_left_x_fixed - self.DESC_AMT_GAP  # second purple line
+                        wrap_rule = "amount_rule"
                     else:
-                        desc_max_width = divider_x - desc_left_x - self.DESC_PAD_R
-                    wrap_limit_x = divider_x - self.DESC_PAD_R
+                        amount_str = ""
+                        wrap_limit_x = divider_x - self.DESC_PAD_R
+                        wrap_rule = "divider_rule"
+                    desc_max_width = wrap_limit_x - desc_left_x
                     # Debug: draw magenta guide and print wrap info
-                    import os
-                    if os.environ.get("STRESS_TEST_DEBUG", "0") == "1":
+                    if debug:
                         can.saveState()
+                        # Draw amount_right_x (header/amount right edge)
+                        can.setStrokeColorRGB(0.5, 0, 1)  # purple
+                        can.setLineWidth(1)
+                        can.line(amount_right_x, line_y + 20, amount_right_x, line_y - 80)
+                        # Draw amount_left_x_fixed (first purple line)
+                        can.setStrokeColorRGB(0.3, 0, 0.7)
+                        can.setLineWidth(1)
+                        can.line(amount_left_x_fixed, line_y + 20, amount_left_x_fixed, line_y - 80)
+                        # Draw desc_wrap_limit_x (second purple line)
                         can.setStrokeColorRGB(1, 0, 1)  # magenta
                         can.setLineWidth(1)
                         can.line(wrap_limit_x, line_y + 20, wrap_limit_x, line_y - 80)
                         can.restoreState()
-                        from reportlab.pdfbase import pdfmetrics
-                        print(f"[DEBUG] divider_x={divider_x:.2f} wrap_limit_x={wrap_limit_x:.2f} desc_left_x={desc_left_x:.2f} desc_max_width={desc_max_width:.2f}")
+                        print(f"[DEBUG] [row {idx}] divider_x={divider_x:.2f} amount_right_x={amount_right_x:.2f} amount_left_x_fixed={amount_left_x_fixed:.2f} wrap_limit_x={wrap_limit_x:.2f} rule={wrap_rule} desc_left_x={desc_left_x:.2f} desc_max_width={desc_max_width:.2f}")
                     wrapped_lines = wrap_text_to_width(desc_text, font_name, font_size, desc_max_width)
                     for i, line in enumerate(wrapped_lines):
                         if line_y < bottom_margin + line_leading:
@@ -224,17 +269,15 @@ class ExportService:
                             line_y = y_position  # reset to body start, not header
                         can.setFont(font_name, font_size)
                         can.drawString(desc_left_x, line_y, line)
-                        if os.environ.get("STRESS_TEST_DEBUG", "0") == "1" and i == 0:
-                            from reportlab.pdfbase import pdfmetrics
+                        if debug and i == 0:
                             line_width = pdfmetrics.stringWidth(line, font_name, font_size)
-                            print(f"[DEBUG] first_line_width={line_width:.2f}")
-                        if i == 0 and amount is not None:
-                            can.drawRightString(amount_right_x - self.AMT_PAD_R, line_y, amount_str)
+                            print(f"[DEBUG] [row {idx}] first_line_width={line_width:.2f}")
+                        if i == 0 and amount_str:
+                            can.drawRightString(amount_right_x, line_y, amount_str)
                         line_y -= line_leading
                 else:
                     # Still decrement line_y for empty description
                     line_y -= line_leading
-                # Remove idx > 15 break; rely on page breaks
         # Reset for content area
         y_position = height - 3.5 * inch if not (getattr(data, "line_items", None) and len(data.line_items) > 0) else line_y - 0.3 * inch
         can.setFont("Helvetica", 12)
