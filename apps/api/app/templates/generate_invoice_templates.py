@@ -65,8 +65,8 @@ def generate_pg1():
     c.drawImage(logo, logo_x, logo_y, width=logo_w, height=logo_h, mask='auto', preserveAspectRatio=True)
 
     # Date/Bill To labels derived from header_baseline_y
-    date_label_y = header_baseline_y + 50
-    billto_label_y = header_baseline_y + 30
+    date_label_y = header_baseline_y + 48
+    billto_label_y = header_baseline_y + 28
     c.setFont("Helvetica", 11)
     c.drawString(left_x, date_label_y, "Date:")
     c.drawString(left_x, billto_label_y, "Bill To:")
@@ -77,7 +77,7 @@ def generate_pg1():
 
     # Header labels
     c.setFont("Helvetica", 12)
-    c.drawString(left_x, header_baseline_y, "Description")
+    c.drawString(left_x + 6, header_baseline_y, "Description")
     c.drawString(amount_divider_x + 8, header_baseline_y, "Amount")
 
     # Single horizontal divider line (table header line)
