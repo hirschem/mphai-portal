@@ -80,7 +80,7 @@ def generate_pg1():
     amount_divider_x = right_x - 70
 
     # Header labels
-    c.setFont("Helvetica", 12)
+    c.setFont("Helvetica-Bold", 12)
     c.drawString(left_x + 6, header_baseline_y, "Description")
     c.drawString(amount_divider_x + 8, header_baseline_y, "Amount")
 
