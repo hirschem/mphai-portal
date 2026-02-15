@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import UploadForm from '@/components/UploadForm'
 import ProposalDisplay from '@/components/ProposalDisplay'
-import { apiFetch } from '@/lib/apiClient'
+import { apiFetch, apiFetchOptional } from '@/lib/apiClient'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function InvoicePage() {
@@ -16,16 +16,20 @@ export default function InvoicePage() {
   useEffect(() => {
     if (!isAdmin) return;
     const entityId = sessionId || 'current';
-    apiFetch(`/api/admin-saves/invoice/${entityId}`)
-      .then(({ ok, data }) => {
+    apiFetchOptional(`/api/admin-saves/invoice/${entityId}`)
+      .then(({ ok, status, data, error }) => {
         if (ok && data) {
           const saved = (data ?? {}) as { proposalData?: unknown; sessionId?: string | null };
           if (saved.proposalData) setProposalData(saved.proposalData);
           if (saved.sessionId !== undefined) setSessionId(saved.sessionId || null);
+        } else if (status === 404) {
+            // expected empty state: no current admin save
+            return;
         }
+        // 401/500/other errors: handled as before (surface as error if needed)
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin]);
+  }, [isAdmin, sessionId]);
 
   // Persist to admin-saves on upload/edit (admin only)
   const persistAdminSave = useCallback((sid: string, pdata: unknown) => {
