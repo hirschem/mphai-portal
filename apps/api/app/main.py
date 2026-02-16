@@ -1,14 +1,13 @@
 import logging
-from starlette.responses import Response, JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi import APIRouter, Request
-from fastapi import FastAPI
-
-import logging
-from starlette.responses import Response, JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi import APIRouter, Request
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from app.api import transcribe, proposals, history, auth, books
+from app.middleware.error_handlers import add_global_error_handlers
+from app.middleware.request_id import RequestIDMiddleware
+from app.middleware.enforce_request_id_json_errors import EnforceRequestIDInJSONErrorsMiddleware
+from app.middleware.request_logging import RequestLoggingMiddleware
+from app.middleware.request_size_limit import RequestSizeLimitMiddleware
+from app.models.config import get_settings
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import transcribe, proposals, history, auth, books
 from app.middleware.error_handlers import add_global_error_handlers
@@ -42,11 +41,16 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
       - auth_public_paths: set of exact paths to bypass auth (test-only)
       - auth_public_prefixes: tuple/list of prefixes to bypass auth (test-only)
     """
+
     app = FastAPI(
         title="MPH Handwriting API",
         description="Transcribe handwritten proposals to professional documents",
         version="0.1.0"
     )
+
+    @app.get("/health", include_in_schema=False)
+    async def health():
+        return {"status": "ok"}
 
     add_global_error_handlers(app)
     # PHASE 1: Universal error contract for all exceptions
@@ -56,7 +60,6 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
     import uuid
     from fastapi.responses import JSONResponse
     from app.middleware.error_handlers import error_response
-    from fastapi import Request
 
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
         request_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
@@ -89,8 +92,6 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         "/redoc",
         "/health",
     )
-    from fastapi import Request
-    from app.middleware.error_handlers import error_response
     from starlette.routing import Match
 
     # Allow test to override settings (for rate limiter, etc.)
@@ -115,10 +116,9 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         # Public paths or prefixes
         bypass = (path in _public_paths) or any(path.startswith(p) for p in _public_prefixes)
         if bypass:
-            resp = await call_next(request)
-            resp.headers["x-auth-bypass"] = "1"
-            resp.headers["x-auth-path"] = path
-            return resp
+            response = await call_next(request)
+            response.headers["x-auth-bypass"] = "1"
+            return response
 
         # Don’t mask 404s: only enforce auth if a route exists for this path
         scope = request.scope
@@ -136,30 +136,6 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         auth = (request.headers.get("authorization") or "").strip()
         if not auth.startswith("Bearer "):
             rid = getattr(request.state, "request_id", None)
-            resp = error_response("UNAUTHORIZED", "Missing or invalid authorization token", rid, 401)
-            resp.headers["x-auth-bypass"] = "0"
-            resp.headers["x-auth-path"] = path
-            return resp
-
-        token = auth[len("Bearer "):].strip()
-        if not token:
-            rid = getattr(request.state, "request_id", None)
-            resp = error_response("UNAUTHORIZED", "Missing or invalid authorization token", rid, 401)
-            resp.headers["x-auth-bypass"] = "0"
-            resp.headers["x-auth-path"] = path
-            return resp
-
-        resp = await call_next(request)
-        resp.headers["x-auth-bypass"] = "0"
-        resp.headers["x-auth-path"] = path
-        return resp
-
-    # ...existing code...
-
-    # ...existing code...
-        auth = (request.headers.get("authorization") or "").strip()
-        if not auth.startswith("Bearer "):
-            rid = getattr(request.state, "request_id", None)
             return error_response("UNAUTHORIZED", "Missing or invalid authorization token", rid, 401)
 
         token = auth[len("Bearer "):].strip()
@@ -168,6 +144,8 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
             return error_response("UNAUTHORIZED", "Missing or invalid authorization token", rid, 401)
 
         return await call_next(request)
+
+    # End create_app
     # Register request size limit middleware next
     from app.middleware.request_size_limit import RequestSizeLimitMiddleware
     app.add_middleware(RequestSizeLimitMiddleware)
@@ -198,7 +176,6 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
 
     # Register RateLimitException handler for correct error shaping
     from app.security.rate_limit import RateLimitException
-    from fastapi import Request
     from app.middleware.error_handlers import error_response
     @app.exception_handler(RateLimitException)
     async def ratelimit_exception_handler(request: Request, exc: RateLimitException):
@@ -215,12 +192,8 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
     return app
 
 # Uvicorn entrypoint
-
 # --- Exported app instance for runtime and tests ---
 app = create_app()
-
-# Compatibility alias: some tests import fastapi_app
-fastapi_app = app
 fastapi_app = app
 
 
