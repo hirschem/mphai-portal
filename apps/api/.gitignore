@@ -1,0 +1,4 @@
+# local generated outputs
+test_output.pdf
+*.pdf
+!app/templates/*.pdf
