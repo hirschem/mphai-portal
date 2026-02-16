@@ -1,3 +1,4 @@
+from app.middleware.error_handlers import error_response
 
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
@@ -10,7 +11,11 @@ from app.api.logging_config import logger
 from app.security.rate_limit import RateLimiter
 
 
-router = APIRouter()
+from fastapi import Depends
+from app.auth import require_auth
+router = APIRouter(
+    dependencies=[Depends(require_auth)]
+)
 _formatting_service = None
 def get_formatting_service():
     global _formatting_service
@@ -23,7 +28,9 @@ file_manager = FileManager()
 rate_limiter = RateLimiter()
 
 
-@router.post("/generate", response_model=ProposalResponse)
+from fastapi import Depends
+from app.auth import require_auth
+@router.post("/generate", response_model=ProposalResponse, dependencies=[Depends(require_auth)])
 async def generate_proposal(payload: ProposalRequest, request: Request, auth_level: str = Depends(require_auth)):
     """Convert transcribed text to professional proposal or invoice"""
     # Rate limit check (after validation/auth, before any side effects)
@@ -81,24 +88,32 @@ async def generate_proposal(payload: ProposalRequest, request: Request, auth_lev
             status="generated"
         )
     except Exception as e:
-        logger.error(f"[generate_proposal] session_id={request.session_id} error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail={
-            "error": "Failed to generate document",
-            "session_id": request.session_id,
-            "document_type": document_type,
-            "reason": f"{type(e).__name__}: {e}"
-        })
+        logger.error(f"[generate_proposal] session_id={getattr(request, 'session_id', None)} error: {e}", exc_info=True)
+        request_id = getattr(request.state, "request_id", None)
+        return error_response("server_error", f"Failed to generate document: {e}", request_id, 500)
 
 
-@router.post("/export/{session_id}")
+@router.post("/export/{session_id}", dependencies=[Depends(require_auth)])
 async def export_proposal(session_id: str, format: str = "pdf", auth_level: str = Depends(require_auth)):
     """Export proposal to PDF or Word document"""
     
     # Load proposal data
     proposal_data = await file_manager.load_proposal(session_id)
     
+    request_id = None
+    try:
+        from fastapi import Request as _Request
+        import inspect
+        frame = inspect.currentframe()
+        while frame:
+            if "request" in frame.f_locals and isinstance(frame.f_locals["request"], _Request):
+                request_id = getattr(frame.f_locals["request"].state, "request_id", None)
+                break
+            frame = frame.f_back
+    except Exception:
+        pass
     if not proposal_data:
-        raise HTTPException(status_code=404, detail="Proposal not found")
+        return error_response("not_found", "Proposal not found", request_id, 404)
     
     # Generate document
     file_path = await export_service.export_document(session_id, proposal_data, format)
@@ -110,19 +125,30 @@ async def export_proposal(session_id: str, format: str = "pdf", auth_level: str 
     }
 
 
-@router.get("/download/{session_id}")
+@router.get("/download/{session_id}", dependencies=[Depends(require_auth)])
 async def download_proposal(session_id: str, auth_level: str = Depends(require_auth)):
     """Download the PDF proposal"""
     
     # Check if PDF exists
     pdf_path = file_manager.sessions_dir / session_id / "proposal.pdf"
     
+    request_id = None
+    try:
+        from fastapi import Request as _Request
+        import inspect
+        frame = inspect.currentframe()
+        while frame:
+            if "request" in frame.f_locals and isinstance(frame.f_locals["request"], _Request):
+                request_id = getattr(frame.f_locals["request"].state, "request_id", None)
+                break
+            frame = frame.f_back
+    except Exception:
+        pass
     if not pdf_path.exists():
         # Try to generate it
         proposal_data = await file_manager.load_proposal(session_id)
         if not proposal_data:
-            raise HTTPException(status_code=404, detail="Proposal not found")
-        
+            return error_response("not_found", "Proposal not found", request_id, 404)
         await export_service.export_document(session_id, proposal_data, "pdf")
     
     # Serve the file

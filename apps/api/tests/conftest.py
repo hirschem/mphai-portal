@@ -62,7 +62,7 @@ def client():
 	# Import app.main only after patching OpenAI
 	from fastapi.testclient import TestClient
 	import app.main
-	return TestClient(app.main.app)
+	return TestClient(app.main.app, raise_server_exceptions=False)
 import os
 # Set test environment variables before app import
 os.environ["DEMO_PASSWORD"] = "demo2026"

@@ -67,11 +67,16 @@ def create_app() -> FastAPI:
     app.include_router(history.router, prefix="/api/history", tags=["history"])
     app.include_router(books.router, prefix="/api/book", tags=["book"])
     from app.api import admin_saves
-    app.include_router(admin_saves.router)
+    app.include_router(admin_saves.router, tags=["admin-saves"])
 
     return app
 
 # Uvicorn entrypoint
+
+# --- Exported app instance for runtime and tests ---
 app = create_app()
+
+# Compatibility alias: some tests import fastapi_app
+fastapi_app = app
 
 

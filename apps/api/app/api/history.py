@@ -1,3 +1,4 @@
+from app.middleware.error_handlers import error_response
 from fastapi import APIRouter, Depends
 from app.storage.file_manager import FileManager
 from app.models.schemas import ProposalListResponse, ProposalSummary
@@ -6,11 +7,21 @@ from pathlib import Path
 import json
 from datetime import datetime
 
-router = APIRouter()
+from fastapi import Depends
+from app.auth import require_admin
+from fastapi import Depends
+from app.auth import require_auth
+router = APIRouter(
+    dependencies=[Depends(require_auth)]
+)
 file_manager = FileManager()
 
 
-@router.get("/list", response_model=ProposalListResponse)
+from fastapi import Depends
+from app.auth import require_admin
+from fastapi import Depends
+from app.auth import require_admin
+@router.get("/list", response_model=ProposalListResponse, dependencies=[Depends(require_admin)])
 async def list_proposals(auth_level: str = Depends(require_admin)):
     """Get list of all proposals"""
     
@@ -59,14 +70,26 @@ async def list_proposals(auth_level: str = Depends(require_admin)):
     return ProposalListResponse(proposals=proposals, total=len(proposals))
 
 
-@router.get("/{session_id}")
+@router.get("/{session_id}", dependencies=[Depends(require_admin)])
 async def get_proposal(session_id: str, auth_level: str = Depends(require_admin)):
     """Get full proposal data by session ID"""
     
     proposal_data = await file_manager.load_proposal(session_id)
     
+    request_id = None
+    try:
+        from fastapi import Request as _Request
+        import inspect
+        frame = inspect.currentframe()
+        while frame:
+            if "request" in frame.f_locals and isinstance(frame.f_locals["request"], _Request):
+                request_id = getattr(frame.f_locals["request"].state, "request_id", None)
+                break
+            frame = frame.f_back
+    except Exception:
+        pass
     if not proposal_data:
-        return {"error": "Proposal not found"}
+        return error_response("not_found", "Proposal not found", request_id, 404)
     
     return {
         "session_id": session_id,
@@ -74,14 +97,26 @@ async def get_proposal(session_id: str, auth_level: str = Depends(require_admin)
     }
 
 
-@router.delete("/{session_id}")
+@router.delete("/{session_id}", dependencies=[Depends(require_admin)])
 async def delete_proposal(session_id: str, auth_level: str = Depends(require_admin)):
     """Delete a proposal"""
     
     session_dir = file_manager.sessions_dir / session_id
     
+    request_id = None
+    try:
+        from fastapi import Request as _Request
+        import inspect
+        frame = inspect.currentframe()
+        while frame:
+            if "request" in frame.f_locals and isinstance(frame.f_locals["request"], _Request):
+                request_id = getattr(frame.f_locals["request"].state, "request_id", None)
+                break
+            frame = frame.f_back
+    except Exception:
+        pass
     if not session_dir.exists():
-        return {"error": "Proposal not found"}
+        return error_response("not_found", "Proposal not found", request_id, 404)
     
     # Delete the entire session directory
     import shutil

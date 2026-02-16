@@ -1,12 +1,19 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from app.auth import require_auth
+from app.middleware.error_handlers import error_response
 from app.services.ocr_service import OCRService
 from app.models.schemas import TranscriptionResponse
 from app.storage.file_manager import FileManager
 import uuid
 
 
-router = APIRouter()
+from fastapi import Depends
+from app.auth import require_auth
+from fastapi import Depends
+from app.auth import require_auth
+router = APIRouter(
+    dependencies=[Depends(require_auth)]
+)
 _ocr_service = None
 def get_ocr_service():
     global _ocr_service
@@ -16,13 +23,25 @@ def get_ocr_service():
 file_manager = FileManager()
 
 
-@router.post("/upload", response_model=TranscriptionResponse)
+from fastapi import Depends
+from app.auth import require_auth
+@router.post("/upload", response_model=TranscriptionResponse, dependencies=[Depends(require_auth)])
 async def transcribe_image(file: UploadFile = File(...), auth_level: str = Depends(require_auth)):
     """Upload handwritten image and get transcription"""
-    
+    request_id = None
+    try:
+        from fastapi import Request as _Request
+        import inspect
+        frame = inspect.currentframe()
+        while frame:
+            if "request" in frame.f_locals and isinstance(frame.f_locals["request"], _Request):
+                request_id = getattr(frame.f_locals["request"].state, "request_id", None)
+                break
+            frame = frame.f_back
+    except Exception:
+        pass
     if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
-    
+        return error_response("invalid_file", "File must be an image", request_id, 400)
     # Generate session ID
     session_id = str(uuid.uuid4())
     

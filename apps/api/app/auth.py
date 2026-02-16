@@ -38,8 +38,8 @@ def get_auth_level(password: str) -> str:
 
 def require_auth(authorization: Optional[str] = Header(None)) -> str:
     """Dependency to require demo or admin password"""
-    password = parse_bearer_token(authorization)
-    return get_auth_level(password)
+    password = parse_bearer_token(authorization)   # should raise HTTPException(401) if missing/invalid
+    return get_auth_level(password)                # should return "user"/"admin" or raise 401
 
 from fastapi import Request
 def require_admin(request: Request):
@@ -49,8 +49,12 @@ def require_admin(request: Request):
     if not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing auth")
     token = auth.removeprefix("Bearer ").strip()
-    password = token
-    auth_level = get_auth_level(password)
+    try:
+        auth_level = get_auth_level(token)
+    except HTTPException as exc:
+        # get_auth_level raises 401 for invalid/missing token
+        raise
     if auth_level != "admin":
+        # Valid token, but not admin
         raise HTTPException(status_code=403, detail="Admin access required")
     return auth_level

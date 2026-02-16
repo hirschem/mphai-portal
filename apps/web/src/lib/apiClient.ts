@@ -99,8 +99,40 @@ export async function apiFetch<T = unknown>(
 
     if (resp.ok) return { ok: true, status: resp.status, data, error: null, requestId };
 
-    console.error("[API ERROR]", { method: options.method || "GET", url: path, status: resp.status, body: text });
-    return { ok: false, status: resp.status, data, error: data, requestId };
+    // --- PATCH: Parse standardized error shape and log request_id ---
+    let errorObj = data;
+    let code = "unknown_error";
+    let message = "Unknown error";
+    let reqId = requestId;
+    if (data && typeof data === "object" && "error" in data && data.error) {
+      code = data.error.code || code;
+      message = data.error.message || message;
+      reqId = data.error.request_id || reqId;
+    }
+    if (reqId) {
+      console.log("API ERROR request_id:", reqId);
+    }
+    // Normalize error objects for common status codes
+    if (resp.status === 401) {
+      errorObj = { code: "unauthorized", message: message, request_id: reqId };
+      // Clear auth and redirect to /login
+      if (typeof window !== "undefined") {
+        try {
+          const { clearAuthToken, clearAuthLevel } = await import("./auth");
+          clearAuthToken();
+          clearAuthLevel();
+        } catch {}
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
+      }
+    } else if (resp.status === 429) {
+      errorObj = { code: "throttled", message: message, request_id: reqId };
+    } else if (resp.status === 500) {
+      errorObj = { code: "server_error", message: message, request_id: reqId };
+    }
+    // --- END PATCH ---
+    return { ok: false, status: resp.status, data, error: errorObj, requestId: reqId };
   } catch (error: unknown) {
     return { ok: false, status: 0, data: undefined as unknown as T, error, requestId: null };
   }

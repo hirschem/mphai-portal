@@ -1,3 +1,4 @@
+from app.middleware.error_handlers import error_response
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from fastapi.responses import FileResponse
 from app.storage.file_manager import FileManager
@@ -11,7 +12,13 @@ import uuid
 import json
 
 
-router = APIRouter()
+from fastapi import Depends
+from app.auth import require_auth, require_admin
+from fastapi import Depends
+from app.auth import require_auth
+router = APIRouter(
+    dependencies=[Depends(require_auth)]
+)
 file_manager = FileManager()
 _ocr_service = None
 def get_ocr_service():
@@ -55,7 +62,9 @@ async def upload_chapter(
     )
 
 
-@router.get("/list", response_model=ChapterListResponse)
+from fastapi import Depends
+from app.auth import require_admin
+@router.get("/list", response_model=ChapterListResponse, dependencies=[Depends(require_admin)])
 async def list_chapters(auth_level: str = Depends(require_admin)):
     """Get list of all book chapters (admin only)"""
     
@@ -98,20 +107,34 @@ async def list_chapters(auth_level: str = Depends(require_admin)):
     return ChapterListResponse(chapters=chapters, total=len(chapters))
 
 
-@router.get("/download/{chapter_id}")
+from fastapi import Depends
+from app.auth import require_auth
+@router.get("/download/{chapter_id}", dependencies=[Depends(require_auth)])
 async def download_chapter(chapter_id: str):
     """Download chapter as Word document"""
     
     chapter_dir = file_manager.books_dir / chapter_id
     
+    request_id = None
+    try:
+        from fastapi import Request as _Request
+        import inspect
+        frame = inspect.currentframe()
+        while frame:
+            if "request" in frame.f_locals and isinstance(frame.f_locals["request"], _Request):
+                request_id = getattr(frame.f_locals["request"].state, "request_id", None)
+                break
+            frame = frame.f_back
+    except Exception:
+        pass
     if not chapter_dir.exists():
-        raise HTTPException(status_code=404, detail="Chapter not found")
+        return error_response("not_found", "Chapter not found", request_id, 404)
     
     # Find the docx file
     docx_files = list(chapter_dir.glob("*.docx"))
     
     if not docx_files:
-        raise HTTPException(status_code=404, detail="Document not found")
+        return error_response("not_found", "Document not found", request_id, 404)
     
     docx_path = docx_files[0]
     
@@ -122,14 +145,26 @@ async def download_chapter(chapter_id: str):
     )
 
 
-@router.delete("/{chapter_id}")
+@router.delete("/{chapter_id}", dependencies=[Depends(require_admin)])
 async def delete_chapter(chapter_id: str, auth_level: str = Depends(require_admin)):
     """Delete a chapter"""
     
     chapter_dir = file_manager.books_dir / chapter_id
     
+    request_id = None
+    try:
+        from fastapi import Request as _Request
+        import inspect
+        frame = inspect.currentframe()
+        while frame:
+            if "request" in frame.f_locals and isinstance(frame.f_locals["request"], _Request):
+                request_id = getattr(frame.f_locals["request"].state, "request_id", None)
+                break
+            frame = frame.f_back
+    except Exception:
+        pass
     if not chapter_dir.exists():
-        raise HTTPException(status_code=404, detail="Chapter not found")
+        return error_response("not_found", "Chapter not found", request_id, 404)
     
     # Delete directory and all contents
     import shutil
