@@ -1,3 +1,14 @@
+# Editor workspace files
+*.code-workspace
+
+# Generated exports (root-level)
+/*.pdf
+MPH_Proposal_*.pdf
+mph-*.pdf
+
+# Test artifacts
+/test-*.jpg
+/test-*.png
 # Ignore generated PDFs in apps/api only
 apps/api/*.pdf
 apps/api/**/*.pdf
