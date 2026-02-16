@@ -1,9 +1,11 @@
 const AUTH_LEVEL_KEY = "auth_level";
 
-export function readAuthLevel(): string | null {
+import type { AuthLevel } from '../contexts/AuthContext';
+export function readAuthLevel(): AuthLevel {
   if (typeof window === "undefined") return null;
   const level = window.localStorage.getItem(AUTH_LEVEL_KEY);
-  return level && level.trim() ? level.trim() : null;
+  if (level === 'admin' || level === 'demo') return level;
+  return null;
 }
 
 export function writeAuthLevel(level: string): void {

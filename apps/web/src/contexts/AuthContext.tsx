@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { readAuthToken, writeAuthToken, clearAuthToken, readAuthLevel, writeAuthLevel } from '../lib/auth';
 import { apiFetch } from '@/lib/apiClient';
 
-type AuthLevel = 'demo' | 'admin' | null
+export type AuthLevel = 'demo' | 'admin' | null
 
 interface AuthContextType {
   authLevel: AuthLevel
@@ -31,14 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (pwd: string) => {
-    const { ok, data, error } = await apiFetch("/api/auth/login", {
+    type LoginResponse = { level?: string };
+    const data = await apiFetch<LoginResponse>("/api/auth/login", {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pwd }),
     });
-    if (!ok) throw error || new Error('Invalid password');
-    const authData = (data ?? {}) as { level?: string };
-    const level = authData.level === 'admin' || authData.level === 'demo' ? authData.level : 'admin';
+    const level = data.level === 'admin' || data.level === 'demo' ? data.level : 'admin';
     setAuthLevel(level);
     setPassword(pwd);
     writeAuthToken(pwd);

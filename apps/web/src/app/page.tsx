@@ -7,8 +7,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { apiHealth, apiAuthProbe } from '@/lib/apiClient';
 
 if (typeof window !== "undefined") {
-  (window as any).apiHealth = apiHealth;
-  (window as any).apiAuthProbe = apiAuthProbe;
+  (window as unknown as Record<string, unknown>).apiHealth = apiHealth;
+  (window as unknown as Record<string, unknown>).apiAuthProbe = apiAuthProbe;
 }
 
 export default function Home() {

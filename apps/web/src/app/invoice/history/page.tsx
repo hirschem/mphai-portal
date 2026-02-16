@@ -1,187 +1,125 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { apiFetch } from '@/lib/apiClient'
-import Link from 'next/link'
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { apiFetchWithMeta } from "@/lib/apiClient";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Proposal {
-  session_id: string
-  client_name?: string
-  project_address?: string
-  total?: number
-  created_at: string
-  has_pdf: boolean
+  session_id: string;
+  client_name?: string;
+  project_address?: string;
+  total?: number;
+  created_at: string;
+  has_pdf: boolean;
 }
 
-export default function HistoryPage() {
-  const [proposals, setProposals] = useState<Proposal[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+type ProposalListResponse = { proposals?: Proposal[] };
 
-  useEffect(() => {
-    loadProposals()
-  }, [])
+export default function InvoiceHistoryPage() {
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const loadProposals = async () => {
+  const { isAdmin } = useAuth();
+  const router = useRouter();
+
+  const loadProposals = useCallback(async () => {
     try {
-      setLoading(true)
-      const { ok, data, error } = await apiFetch('/api/history/list');
-      if (!ok) throw error || new Error('Failed to load proposals');
-      const list = data as { proposals?: Proposal[] };
-      setProposals(list.proposals ?? []);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load proposals');
+      setLoading(true);
+
+      const res = await apiFetchWithMeta<ProposalListResponse>("/api/history/list");
+      if (!res.ok) throw res.error ?? new Error("Failed to load proposals");
+      if (!res.data) throw new Error("Failed to load proposals");
+
+      setProposals(res.data.proposals ?? []);
+    } catch (err) {
+      setError("Failed to load proposals");
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  const handleDelete = async (sessionId: string) => {
-    if (!confirm('Are you sure you want to delete this proposal?')) {
+  useEffect(() => {
+    if (!isAdmin) {
+      router.push("/");
       return;
     }
-    try {
-      const { ok, error } = await apiFetch(`/api/history/${sessionId}`, { method: 'DELETE' });
-      if (!ok) throw error || new Error('Failed to delete proposal');
-      setProposals(proposals.filter(p => p.session_id !== sessionId));
-    } catch (err: unknown) {
-      console.error(err);
-      alert('Failed to delete proposal');
-    }
-  }
+    void loadProposals();
+  }, [isAdmin, router, loadProposals]);
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    })
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-700 mx-auto mb-4" />
+          <p className="text-gray-600">Loading proposals...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <main className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <Link 
-              href="/"
-              className="text-blue-600 hover:text-blue-700 text-sm mb-2 inline-block"
-            >
-              ← Back to Mode Selection
-            </Link>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Invoice History
-            </h1>
-          </div>
+        <header className="mb-8">
           <Link
             href="/invoice"
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg
-              hover:bg-blue-700 transition-colors"
+            className="text-blue-600 hover:text-blue-700 text-sm mb-2 inline-block"
           >
-            + New Invoice
+            ← Back to Invoice Mode
           </Link>
-        </div>
-
-        {loading && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">Loading proposals...</p>
-          </div>
-        )}
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Invoice History</h1>
+          <p className="text-gray-600">View and manage saved invoices</p>
+        </header>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
             {error}
           </div>
         )}
 
-        {!loading && !error && proposals.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-lg shadow">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 className="mt-2 text-lg font-medium text-gray-900">No proposals yet</h3>
-            <p className="mt-1 text-gray-500">Get started by creating your first proposal.</p>
+        {proposals.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">No invoices yet</h2>
+            <p className="text-gray-600 mb-6">Create your first invoice to see it here.</p>
             <Link
-              href="/"
-              className="mt-6 inline-block bg-blue-600 text-white px-6 py-3 rounded-lg
-                hover:bg-blue-700 transition-colors font-medium"
+              href="/invoice"
+              className="inline-block bg-gray-800 text-white px-6 py-3 rounded-lg hover:bg-gray-900 transition-colors"
             >
-              Create Proposal
+              Create Invoice
             </Link>
           </div>
-        )}
-
-        {!loading && !error && proposals.length > 0 && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {proposals.map((proposal) => (
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {proposals.map((p: Proposal, idx: number) => (
               <div
-                key={proposal.session_id}
-                className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+                key={p?.session_id ?? idx}
+                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow"
               >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg text-gray-900 mb-1">
-                      {proposal.client_name || 'Unnamed Client'}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-2">
-                      {proposal.project_address || 'No address provided'}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {formatDate(proposal.created_at)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleDelete(proposal.session_id)}
-                    className="text-red-600 hover:text-red-800 p-1"
-                    title="Delete proposal"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                <div className="mb-2 font-semibold text-gray-900">
+                  {p?.client_name ?? p?.project_address ?? "Invoice"}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {p?.created_at ? new Date(p.created_at).toLocaleDateString() : ""}
                 </div>
 
-                {proposal.total && (
-                  <div className="mb-4">
-                    <span className="text-2xl font-bold text-green-600">
-                      ${proposal.total.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex gap-2">
+                {/* Swap this section with your existing buttons/actions */}
+                <div className="mt-4">
                   <Link
-                    href={`/proposal/${proposal.session_id}`}
-                    className="flex-1 bg-blue-600 text-white text-center py-2 px-4 rounded-lg
-                      hover:bg-blue-700 transition-colors text-sm font-medium"
+                    href="/invoice"
+                    className="text-blue-600 hover:text-blue-700 text-sm"
                   >
-                    View Details
+                    Open
                   </Link>
-                  {proposal.has_pdf && (
-                    <a
-                      href={`${process.env.NEXT_PUBLIC_API_URL}/api/proposals/download/${proposal.session_id}`}
-                      download
-                      className="bg-green-600 text-white py-2 px-4 rounded-lg
-                        hover:bg-green-700 transition-colors text-sm font-medium"
-                      title="Download PDF"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </a>
-                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
-    </div>
-  )
+    </main>
+  );
 }

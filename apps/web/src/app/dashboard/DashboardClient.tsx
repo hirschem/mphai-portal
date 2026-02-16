@@ -11,13 +11,17 @@ export default function DashboardClient() {
   const level = readAuthLevel();
 
   async function pingApi() {
-    const { ok, requestId, error } = await apiFetchWithMeta("/", { method: "GET" });
-    setRequestId(requestId || "");
-    const errMsg =
-      typeof error === "object" && error !== null && "message" in error
-        ? String((error as { message?: unknown }).message ?? "Error")
+    type PingResponse = { status?: string };
+    const res = await apiFetchWithMeta<PingResponse>("/", { method: "GET" });
+    setRequestId(res.requestId || "");
+    if (!res.ok) {
+      const errMsg = typeof res.error === "object" && res.error !== null && "message" in res.error
+        ? String((res.error as { message?: unknown }).message ?? "Error")
         : "Error";
-    setApiStatus(ok ? "OK" : errMsg);
+      setApiStatus(errMsg);
+      return;
+    }
+    setApiStatus("OK");
   }
 
   useEffect(() => {

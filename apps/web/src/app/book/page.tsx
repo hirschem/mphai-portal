@@ -1,9 +1,15 @@
-'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { apiFetch } from '@/lib/apiClient'
-import Link from 'next/link'
-import { useAuth } from '@/contexts/AuthContext'
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import { apiFetchOptional, apiFetchWithMeta } from "@/lib/apiClient";
+import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+
+type BookUploadResponse = {
+  transcribed_text: string;
+  chapter_id: string;
+};
 
 export default function BookPage() {
   const [chapterName, setChapterName] = useState('')
@@ -26,7 +32,7 @@ export default function BookPage() {
   useEffect(() => {
     if (!isAdmin) return;
     if (hydratedRef.current || dirtyRef.current) return;
-    apiFetch(`/api/admin-saves/book/${entityId}`)
+    apiFetchOptional(`/api/admin-saves/book/${entityId}`)
       .then(({ ok, data }) => {
         if (ok && data && !dirtyRef.current) {
           const saved = (data ?? {}) as { chapterName?: string; selectedFiles?: unknown; transcribedText?: string; chapterId?: string };
@@ -44,7 +50,7 @@ export default function BookPage() {
   const persistAdminSave = useCallback(() => {
     if (!isAdmin) return;
     setSaveStatus('saving')
-    apiFetch(`/api/admin-saves/book/${entityId}`, {
+    apiFetchOptional(`/api/admin-saves/book/${entityId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -85,11 +91,11 @@ export default function BookPage() {
       selectedFiles.forEach(file => {
         formData.append('files', file)
       })
-      const { ok, data } = await apiFetch('/api/book/upload', {
+      const { ok, data } = await apiFetchWithMeta<BookUploadResponse>('/api/book/upload', {
         method: 'POST',
         body: formData,
       });
-      if (!ok) {
+      if (!ok || !data) {
         throw new Error('Upload failed');
       }
       setTranscribedText(data.transcribed_text);

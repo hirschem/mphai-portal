@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef } from 'react'
-import { apiFetch } from '@/lib/apiClient'
+import Image from 'next/image';
+import { apiFetchWithMeta } from '@/lib/apiClient'
 
 interface UploadFormProps {
   onSuccess: (sessionId: string, proposalData: unknown) => void
@@ -61,16 +62,18 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
       console.log('UPLOAD DEBUG — fd type:', Object.prototype.toString.call(fd));
       console.log('UPLOAD DEBUG — instanceof FormData:', fd instanceof FormData);
       console.log('UPLOAD DEBUG — file constructor:', files?.[0]?.constructor?.name);
-      const transcribeResp = await apiFetch('/api/transcribe/upload', {
+      type TranscribeResponse = { session_id: string; raw_text: string };
+      const transcribeResp = await apiFetchWithMeta<TranscribeResponse>('/api/transcribe/upload', {
         method: 'POST',
         body: fd,
       });
       if (!transcribeResp.ok) throw transcribeResp.error || new Error('Failed to transcribe');
-      const transcribeResult = transcribeResp.data;
-      const tr = transcribeResult as { session_id: string; raw_text: string };
+      if (!transcribeResp.data) throw new Error('Missing transcribe response');
+      const tr = transcribeResp.data;
 
       // Step 2: Generate professional proposal
-      const proposalResp = await apiFetch('/api/proposals/generate', {
+      type ProposalResponse = { session_id: string } & Record<string, unknown>;
+      const proposalResp = await apiFetchWithMeta<ProposalResponse>('/api/proposals/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -79,7 +82,8 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
         }),
       });
       if (!proposalResp.ok) throw proposalResp.error || new Error('Failed to generate proposal');
-      const proposalResult = proposalResp.data as Record<string, unknown> & { session_id: string };
+      if (!proposalResp.data) throw new Error('Missing proposal response');
+      const proposalResult = proposalResp.data;
 
       onSuccess(proposalResult.session_id, proposalResult);
     } catch (err: unknown) {
@@ -177,9 +181,11 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
             <div className="grid grid-cols-2 gap-4">
               {previews.map((preview, idx) => (
                 <div key={idx} className="relative">
-                  <img
+                  <Image
                     src={preview}
                     alt={`Preview ${idx + 1}`}
+                    width={256}
+                    height={256}
                     className="w-full h-auto rounded-lg border-2 border-gray-200"
                   />
                   <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold">
