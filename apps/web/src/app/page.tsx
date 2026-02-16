@@ -1,8 +1,15 @@
+
 'use client'
 
 import LoginPage from '@/components/LoginPage'
 import ModeSelector from '@/components/ModeSelector'
 import { useAuth } from '@/contexts/AuthContext'
+import { apiHealth, apiAuthProbe } from '@/lib/apiClient';
+
+if (typeof window !== "undefined") {
+  (window as any).apiHealth = apiHealth;
+  (window as any).apiAuthProbe = apiAuthProbe;
+}
 
 export default function Home() {
   const { isAuthenticated, logout } = useAuth()

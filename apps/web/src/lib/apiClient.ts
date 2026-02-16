@@ -1,48 +1,27 @@
-import { readAuthToken } from "./auth";
+import { ApiError } from "./apiTypes";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-function isBrowser() {
-  return typeof window !== "undefined";
+function isJsonContentType(headers: Headers): boolean {
+  const ct = headers.get("content-type");
+  return !!ct && ct.toLowerCase().includes("application/json");
 }
 
-function getAuthToken(): string | null {
-  if (!isBrowser()) return null;
-  return readAuthToken();
+function isRecord(v: unknown): v is Record<string, any> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
 }
 
-function getPathname(input: string): string {
-  try {
-    return new URL(input).pathname; // absolute URL
-  } catch {
-    return input; // relative path like "/api/..."
-  }
-}
-
-function shouldAttachAuth(input: string): boolean {
-  const path = getPathname(input);
-  // only endpoint that must NOT include auth
-  return path !== "/api/auth/login";
-}
-
-function isFormDataBody(body: unknown): body is FormData {
-  if (!body) return false;
-  if (typeof FormData !== "undefined" && body instanceof FormData) return true;
-  return Object.prototype.toString.call(body) === "[object FormData]";
-}
-
-async function request<T>(
+export async function apiFetch<T = unknown>(
   path: string,
-  options: RequestInit = {}
-): Promise<{ resp: Response; text: string; data: T; requestId: string | null }> {
-  const url = path.startsWith("http") ? path : `${API_URL}${path}`;
+  opts: RequestInit & { token?: string } = {}
+): Promise<T> {
+  const { token, ...init } = opts; // do not pass token to fetch()
 
-  // --- PATCH: Canonical safe header merge and Authorization logic ---
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-  const headers = new Headers(options.headers ?? undefined);
-  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  const url = new URL(path.replace(/^\/+/, ""), BASE_URL).toString();
+  const headers = new Headers(init.headers || {});
+  headers.set("Accept", "application/json");
 
-  if (!isFormData && !headers.has("Content-Type")) {
+  if (init.body && typeof init.body === "string" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -50,107 +29,66 @@ async function request<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  let body: BodyInit | null | undefined = options.body as any;
-  if (!isFormData && options.body != null && typeof options.body === "object" && !(options.body instanceof Blob) && !(options.body instanceof ArrayBuffer)) {
-    body = JSON.stringify(options.body);
-  }
-
-  // --- END PATCH ---
-
-
-  // --- PATCH: Temporary debug log for outgoing headers ---
-  console.log("OUTGOING HEADERS", Object.fromEntries(headers.entries()));
-  // --- END PATCH ---
-  const { headers: _ignored, mode: _modeIgnored, credentials: _credIgnored, ...rest } = options;
-  // --- PATCH: AUTH DEBUG instrumentation ---
-  console.log("AUTH DEBUG", {
-    url,
-    token,
-    shouldAttachAuth: shouldAttachAuth(url),
-    headers: Object.fromEntries(headers.entries()),
-  });
-  // --- END PATCH ---
-  const resp = await fetch(url, {
-    ...rest,
-    mode: "cors",
-    credentials: "omit",
-    headers,
-    body,
-  });
-  const requestId = resp.headers.get("x-request-id") ?? null;
-
-  const text = await resp.text();
-  let data = undefined as unknown as T;
+  let res: Response;
   try {
-    data = text ? (JSON.parse(text) as T) : (undefined as unknown as T);
+    res = await fetch(url, { ...init, headers });
   } catch {
-    data = undefined as unknown as T;
+    console.error("API_ERROR", { status: 0, path, message: "Network error" });
+    throw new ApiError({ status: 0, message: "Network error" });
   }
 
-  return { resp, text, data, requestId };
-}
-
-export async function apiFetch<T = unknown>(
-  path: string,
-  options: RequestInit = {}
-): Promise<{ ok: boolean; status: number; data: T; error: unknown; requestId: string | null }> {
-  try {
-    const { resp, text, data, requestId } = await request<T>(path, options);
-
-    if (resp.ok) return { ok: true, status: resp.status, data, error: null, requestId };
-
-    // --- PATCH: Parse standardized error shape and log request_id ---
-    let errorObj = data;
-    let code = "unknown_error";
-    let message = "Unknown error";
-    let reqId = requestId;
-    if (data && typeof data === "object" && "error" in data && data.error) {
-      code = data.error.code || code;
-      message = data.error.message || message;
-      reqId = data.error.request_id || reqId;
-    }
-    if (reqId) {
-      console.log("API ERROR request_id:", reqId);
-    }
-    // Normalize error objects for common status codes
-    if (resp.status === 401) {
-      errorObj = { code: "unauthorized", message: message, request_id: reqId };
-      // Clear auth and redirect to /login
-      if (typeof window !== "undefined") {
-        try {
-          const { clearAuthToken, clearAuthLevel } = await import("./auth");
-          clearAuthToken();
-          clearAuthLevel();
-        } catch {}
-        if (window.location.pathname !== "/login") {
-          window.location.href = "/login";
-        }
-      }
-    } else if (resp.status === 429) {
-      errorObj = { code: "throttled", message: message, request_id: reqId };
-    } else if (resp.status === 500) {
-      errorObj = { code: "server_error", message: message, request_id: reqId };
-    }
-    // --- END PATCH ---
-    return { ok: false, status: resp.status, data, error: errorObj, requestId: reqId };
-  } catch (error: unknown) {
-    return { ok: false, status: 0, data: undefined as unknown as T, error, requestId: null };
+  const requestId = res.headers.get("x-request-id") || undefined;
+  if (!requestId) {
+    console.error("MISSING_X_REQUEST_ID", { path, status: res.status });
   }
+
+  let data: any = undefined;
+  let isJson = isJsonContentType(res.headers);
+
+  if (isJson) {
+    try {
+      data = await res.json();
+    } catch {
+      data = undefined;
+      isJson = false;
+    }
+  }
+
+  if (res.ok) {
+    return data as T;
+  }
+
+  // --- Error normalization ---
+  let message = "API request failed";
+  let errorCode: string | undefined = undefined;
+  let detail: unknown = undefined;
+
+  if (isJson && isRecord(data)) {
+    message = data.message || data.error_message || message;
+    errorCode = data.error_code || data.code;
+    detail = data.detail;
+  } else {
+    message = await res.text().catch(() => message);
+  }
+
+  // 429: contract check detail.error === "Too many requests"
+  if (res.status === 429 && isRecord(detail) && detail.error !== "Too many requests") {
+    console.error("RATE_LIMIT_DETAIL_MISMATCH", { got: detail.error, requestId, path });
+  }
+
+  console.error("API_ERROR", { status: res.status, requestId, path, message, errorCode });
+  throw new ApiError({ status: res.status, requestId, message, errorCode, detail });
 }
 
-export async function apiFetchOptional<T = unknown>(
-  path: string,
-  options: RequestInit = {}
-): Promise<{ ok: boolean; status: number; data: T | null; error: unknown; requestId: string | null }> {
-  const r = await apiFetch<T>(path, options);
-  if (r.status === 404) return { ok: false, status: 404, data: null, error: null, requestId: r.requestId };
-  return { ok: r.ok, status: r.status, data: r.ok ? r.data : (r.data ?? null), error: r.error, requestId: r.requestId };
+// --- Minimal smoke helpers ---
+export async function apiHealth() {
+  return apiFetch<{ status: string }>("/health");
 }
 
-export async function apiFetchWithMeta<T = unknown>(
-  path: string,
-  options: RequestInit = {}
-): Promise<{ ok: boolean; status: number; data: T; error: unknown; requestId: string | null }> {
-  // Alias for apiFetch, kept for compatibility
-  return apiFetch<T>(path, options);
+export async function apiAuthProbe(token?: string) {
+  return apiFetch<any>("/api/proposals/generate", {
+    method: "POST",
+    body: JSON.stringify({ raw_text: "test", session_id: "probe" }),
+    token,
+  });
 }
