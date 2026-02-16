@@ -82,7 +82,17 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
     app.add_exception_handler(StarletteHTTPException, starlette_http_exception_handler)
     app.add_exception_handler(HTTPException, starlette_http_exception_handler)
 
-    # Register request ID middleware first
+
+    # --- CORS Stabilization: Add CORSMiddleware FIRST ---
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^https://.*\.vercel\.app$",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Register request ID middleware next
     app.add_middleware(RequestIDMiddleware)
     # Register AuthGate as function-based middleware (replaces class-based AuthGateMiddleware)
     DEFAULT_PUBLIC_PREFIXES = (
@@ -110,6 +120,7 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         path = request.url.path
         method = request.method
 
+        # --- Allow OPTIONS through auth gate ---
         if method == "OPTIONS":
             return await call_next(request)
 
@@ -152,16 +163,6 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
     # Other middleware
     # app.add_middleware(EnforceRequestIDInJSONErrorsMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
-
-    import os
-    origins = [o for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
 
     settings = get_settings()
 
