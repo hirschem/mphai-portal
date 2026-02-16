@@ -8,14 +8,6 @@ from app.middleware.enforce_request_id_json_errors import EnforceRequestIDInJSON
 from app.middleware.request_logging import RequestLoggingMiddleware
 from app.middleware.request_size_limit import RequestSizeLimitMiddleware
 from app.models.config import get_settings
-from fastapi.middleware.cors import CORSMiddleware
-from app.api import transcribe, proposals, history, auth, books
-from app.middleware.error_handlers import add_global_error_handlers
-from app.middleware.request_id import RequestIDMiddleware
-from app.middleware.enforce_request_id_json_errors import EnforceRequestIDInJSONErrorsMiddleware
-from app.middleware.request_logging import RequestLoggingMiddleware
-from app.middleware.request_size_limit import RequestSizeLimitMiddleware
-from app.models.config import get_settings
 
 # --- Redact Authorization header in logs (minimal filter) ---
 class RedactAuthFilter(logging.Filter):
@@ -35,6 +27,15 @@ for handler in logging.getLogger().handlers:
     handler.addFilter(RedactAuthFilter())
 
 def create_app(settings_override=None, auth_public_paths=None, auth_public_prefixes=None) -> FastAPI:
+        @app.get("/__deploy_check__", include_in_schema=False)
+        async def __deploy_check__():
+            return {
+                "deploy": "cors-v2",
+                "allow_origins": ["https://mphai.app", "https://www.mphai.app"],
+                "allow_origin_regex": r"^https://([a-z0-9-]+\.)*vercel\.app$",
+                "allow_credentials": False,
+                "max_age": 86400,
+            }
     """
     Factory for FastAPI app. Accepts test overrides:
       - settings_override: custom settings object (for test isolation)
@@ -83,16 +84,9 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
     app.add_exception_handler(HTTPException, starlette_http_exception_handler)
 
 
-    # --- CORS Stabilization: Add CORSMiddleware FIRST ---
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origin_regex=r"^https://.*\.vercel\.app$",
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
 
-    # Register request ID middleware next
+
+    # Register request ID middleware
     app.add_middleware(RequestIDMiddleware)
     # Register AuthGate as function-based middleware (replaces class-based AuthGateMiddleware)
     DEFAULT_PUBLIC_PREFIXES = (
@@ -156,13 +150,28 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
 
         return await call_next(request)
 
-    # End create_app
-    # Register request size limit middleware next
+
+    # Register request size limit middleware
     from app.middleware.request_size_limit import RequestSizeLimitMiddleware
     app.add_middleware(RequestSizeLimitMiddleware)
     # Other middleware
     # app.add_middleware(EnforceRequestIDInJSONErrorsMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
+
+    # --- CORS Stabilization: Add CORSMiddleware LAST (outermost) ---
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://mphai.app",
+            "https://www.mphai.app",
+        ],
+        allow_origin_regex=r"^https://([a-z0-9-]+\.)*vercel\.app$",
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+        expose_headers=["X-Request-ID"],
+        max_age=86400,
+    )
 
     settings = get_settings()
 
