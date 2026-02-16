@@ -4,10 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import transcribe, proposals, history, auth, books
 from app.middleware.error_handlers import add_global_error_handlers
 from app.middleware.request_id import RequestIDMiddleware
-from app.middleware.enforce_request_id_json_errors import EnforceRequestIDInJSONErrorsMiddleware
 from app.middleware.request_logging import RequestLoggingMiddleware
-from app.middleware.request_size_limit import RequestSizeLimitMiddleware
 from app.models.config import get_settings
+from app.middleware.request_size_limit import RequestSizeLimitMiddleware
+
+DEPLOY_FINGERPRINT = "cors-v2-20260216-1849"
 
 # --- Redact Authorization header in logs (minimal filter) ---
 class RedactAuthFilter(logging.Filter):
@@ -27,15 +28,6 @@ for handler in logging.getLogger().handlers:
     handler.addFilter(RedactAuthFilter())
 
 def create_app(settings_override=None, auth_public_paths=None, auth_public_prefixes=None) -> FastAPI:
-        @app.get("/__deploy_check__", include_in_schema=False)
-        async def __deploy_check__():
-            return {
-                "deploy": "cors-v2",
-                "allow_origins": ["https://mphai.app", "https://www.mphai.app"],
-                "allow_origin_regex": r"^https://([a-z0-9-]+\.)*vercel\.app$",
-                "allow_credentials": False,
-                "max_age": 86400,
-            }
     """
     Factory for FastAPI app. Accepts test overrides:
       - settings_override: custom settings object (for test isolation)
@@ -49,6 +41,10 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         version="0.1.0"
     )
 
+    @app.get("/__deploy_check__", include_in_schema=False)
+    async def __deploy_check__():
+        return {"deploy": DEPLOY_FINGERPRINT}
+
     @app.get("/health", include_in_schema=False)
     async def health():
         return {"status": "ok"}
@@ -59,7 +55,7 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
     from starlette.exceptions import HTTPException as StarletteHTTPException
     from fastapi import HTTPException
     import uuid
-    from fastapi.responses import JSONResponse
+    # from fastapi.responses import JSONResponse  # Removed: unused import
     from app.middleware.error_handlers import error_response
 
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -83,9 +79,6 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
     app.add_exception_handler(StarletteHTTPException, starlette_http_exception_handler)
     app.add_exception_handler(HTTPException, starlette_http_exception_handler)
 
-
-
-
     # Register request ID middleware
     app.add_middleware(RequestIDMiddleware)
     # Register AuthGate as function-based middleware (replaces class-based AuthGateMiddleware)
@@ -95,6 +88,7 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         "/openapi.json",
         "/redoc",
         "/health",
+        "/__deploy_check__",
     )
     from starlette.routing import Match
 
@@ -150,9 +144,7 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
 
         return await call_next(request)
 
-
     # Register request size limit middleware
-    from app.middleware.request_size_limit import RequestSizeLimitMiddleware
     app.add_middleware(RequestSizeLimitMiddleware)
     # Other middleware
     # app.add_middleware(EnforceRequestIDInJSONErrorsMiddleware)
@@ -173,7 +165,6 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         max_age=86400,
     )
 
-    settings = get_settings()
 
     # Register routes
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
@@ -205,5 +196,3 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
 # --- Exported app instance for runtime and tests ---
 app = create_app()
 fastapi_app = app
-
-
