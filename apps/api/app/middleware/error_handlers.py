@@ -23,12 +23,22 @@ def add_global_error_handlers(app: ASGIApp) -> None:
         else:
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         logging.getLogger("mph.error").error(traceback.format_exc())
+        # --- PATCH: Add CORS headers for allowed origins ---
+        origin = request.headers.get("origin")
+        headers = None
+        if origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
+            headers = {
+                "Access-Control-Allow-Origin": origin,
+                "Vary": "Origin",
+            }
+        # --- END PATCH ---
         return JSONResponse(
             status_code=status_code,
             content={
                 "detail": detail,
                 "request_id": request_id,
             },
+            headers=headers,
         )
     app.add_exception_handler(Exception, error_handler)
     # Patch Starlette's ServerErrorMiddleware to not swallow our handler

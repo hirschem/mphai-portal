@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { useState, useRef } from 'react'
 import { apiFetch } from '@/lib/apiClient'
@@ -55,11 +55,15 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
 
     try {
       // Step 1: Upload and transcribe (use first file for now, can be enhanced for multi-page)
-      const formData = new FormData();
-      formData.append('file', files[0]);
+      const fd = new FormData();
+      fd.append('file', files[0]);
+      // TEMP upload debug logs
+      console.log('UPLOAD DEBUG — fd type:', Object.prototype.toString.call(fd));
+      console.log('UPLOAD DEBUG — instanceof FormData:', fd instanceof FormData);
+      console.log('UPLOAD DEBUG — file constructor:', files?.[0]?.constructor?.name);
       const transcribeResp = await apiFetch('/api/transcribe/upload', {
         method: 'POST',
-        body: formData,
+        body: fd,
       });
       if (!transcribeResp.ok) throw transcribeResp.error || new Error('Failed to transcribe');
       const transcribeResult = transcribeResp.data;

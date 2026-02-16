@@ -85,18 +85,17 @@ export default function BookPage() {
       selectedFiles.forEach(file => {
         formData.append('files', file)
       })
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/book/upload`, {
+      const { ok, data } = await apiFetch('/api/book/upload', {
         method: 'POST',
         body: formData,
-      })
-      if (!response.ok) {
-        throw new Error('Upload failed')
+      });
+      if (!ok) {
+        throw new Error('Upload failed');
       }
-      const data = await response.json()
-      setTranscribedText(data.transcribed_text)
-      setChapterId(data.chapter_id)
-      markDirty()
-      persistAdminSave()
+      setTranscribedText(data.transcribed_text);
+      setChapterId(data.chapter_id);
+      markDirty();
+      persistAdminSave();
     } catch (err) {
       setError('Failed to transcribe chapter. Please try again.')
       console.error(err)

@@ -41,8 +41,15 @@ def require_auth(authorization: Optional[str] = Header(None)) -> str:
     password = parse_bearer_token(authorization)
     return get_auth_level(password)
 
-def require_admin(authorization: Optional[str] = Header(None)):
-    password = parse_bearer_token(authorization)  # raises 401 if bad
+from fastapi import Request
+def require_admin(request: Request):
+    if request.method == "OPTIONS":
+        return
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing auth")
+    token = auth.removeprefix("Bearer ").strip()
+    password = token
     auth_level = get_auth_level(password)
     if auth_level != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")

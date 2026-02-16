@@ -1,37 +1,48 @@
-// For backward compatibility
-export const clearAuth = clearAuthToken;
-// src/lib/auth.ts
-function isBrowser() {
-  return typeof window !== 'undefined';
+const AUTH_LEVEL_KEY = "auth_level";
+
+export function readAuthLevel(): string | null {
+  if (typeof window === "undefined") return null;
+  const level = window.localStorage.getItem(AUTH_LEVEL_KEY);
+  return level && level.trim() ? level.trim() : null;
 }
 
+export function writeAuthLevel(level: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTH_LEVEL_KEY, level.trim());
+}
+
+export function clearAuthLevel(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(AUTH_LEVEL_KEY);
+}
+// src/lib/auth.ts
+const AUTH_TOKEN_KEY = "auth_token";
+
+// Keep temporary backwards-compat only so old saved values still work.
+// Once everything is stable, you can remove the legacy list entirely.
+const LEGACY_KEYS = ["mphai_admin_password", "token", "admin_password"];
+
 export function readAuthToken(): string | null {
-  if (!isBrowser()) return null;
-  return localStorage.getItem('mph_auth');
+  if (typeof window === "undefined") return null;
+
+  const direct = window.localStorage.getItem(AUTH_TOKEN_KEY);
+  if (direct && direct.trim()) return direct.trim();
+
+  for (const k of LEGACY_KEYS) {
+    const v = window.localStorage.getItem(k);
+    if (v && v.trim()) return v.trim();
+  }
+
+  return null;
 }
 
 export function writeAuthToken(token: string): void {
-  if (!isBrowser()) return;
-  localStorage.setItem('mph_auth', token);
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTH_TOKEN_KEY, token.trim());
 }
 
 export function clearAuthToken(): void {
-  if (!isBrowser()) return;
-  localStorage.removeItem('mph_auth');
-  localStorage.removeItem('mph_auth_level');
-}
-
-export function readAuthLevel(): 'demo' | 'admin' | null {
-  if (!isBrowser()) return null;
-  const level = localStorage.getItem('mph_auth_level');
-  return level === 'demo' || level === 'admin' ? level : null;
-}
-
-export function writeAuthLevel(level: 'demo' | 'admin'): void {
-  if (!isBrowser()) return;
-  localStorage.setItem('mph_auth_level', level);
-}
-
-export function isAuthed(): boolean {
-  return !!readAuthToken() && !!readAuthLevel();
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  for (const k of LEGACY_KEYS) window.localStorage.removeItem(k);
 }

@@ -1,5 +1,3 @@
-import { API_CLIENT_BUILD_STAMP } from '@/lib/apiClient';
-console.log("API_CLIENT_BUILD_STAMP", API_CLIENT_BUILD_STAMP);
 "use client";
 // ...existing code...
 

@@ -12,11 +12,12 @@ class OCRService:
     
     async def transcribe_image(self, image_path: Path) -> str:
         """Transcribe handwritten text from image using GPT-4 Vision"""
-        
+        import os
+        import logging
+        logging.warning(f"bool(settings.openai_api_key)={bool(settings.openai_api_key)}, bool(os.getenv('OPENAI_API_KEY'))={bool(os.getenv('OPENAI_API_KEY'))}")
         # Read and encode image
         with open(image_path, "rb") as img_file:
             image_data = base64.b64encode(img_file.read()).decode("utf-8")
-        
         # Call OpenAI API
         response = await self.client.chat.completions.create(
             model="gpt-4o",
