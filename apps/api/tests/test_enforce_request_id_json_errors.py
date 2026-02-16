@@ -6,9 +6,11 @@ from fastapi import APIRouter
 
 # Register the test route at module scope so it is always available
 router = APIRouter()
+from app.middleware.error_handlers import error_response
 @router.get("/test-direct-json-error")
-async def direct_json_error():
-    return JSONResponse({"detail": "fail"}, status_code=401)
+async def direct_json_error(request):
+    request_id = getattr(request.state, "request_id", None)
+    return error_response("UNAUTHORIZED", "fail", request_id, 401)
 fastapi_app.include_router(router)
 
 client = TestClient(app)

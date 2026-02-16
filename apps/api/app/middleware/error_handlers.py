@@ -1,92 +1,90 @@
-
 from __future__ import annotations
 
-def error_response(code: str, message: str, request_id: str, status_code: int):
-    resp = JSONResponse(
-        status_code=status_code,
-        content={
-            "error": {
-                "code": code,
-                "message": message,
-                "request_id": request_id,
-            }
-        },
-    )
-    if request_id:
-        resp.headers["X-Request-ID"] = str(request_id)
-    return resp
+import uuid
+from typing import Optional
 
-import logging
-import traceback
-from fastapi import Request, status
+from fastapi import HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from starlette.middleware.errors import ServerErrorMiddleware
-from starlette.types import ASGIApp
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
-def add_global_error_handlers(app: ASGIApp) -> None:
-    from fastapi import HTTPException
-    import uuid
 
-    async def http_exception_handler(request: Request, exc: HTTPException):
+
+
+def error_response(
+    error_code: str,
+    message: str,
+    request_id: Optional[str],
+    status_code: int,
+    *,
+    error: Optional[dict] = None,
+    include_detail: bool = False,
+    detail_error: Optional[object] = None,  # can be str or dict
+) -> JSONResponse:
+    rid = request_id or str(uuid.uuid4())
+
+    error_obj = error or {
+        "code": error_code,  # legacy key expected by tests
+        "error_code": error_code,
+        "message": message,
+        "request_id": rid,
+    }
+
+    payload = {
+        "request_id": rid,
+        "error_code": error_code,
+        "message": message,
+        "error": error_obj,
+    }
+    if include_detail:
+        payload["detail"] = {"error": detail_error if detail_error is not None else error_obj}
+
+    return JSONResponse(
+        status_code=status_code,
+        content=payload,
+        headers={"X-Request-ID": rid},
+    )
+
+
+def add_global_error_handlers(app) -> None:
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
         request_id = getattr(request.state, "request_id", None)
-        if not request_id:
-            request_id = request.headers.get("X-Request-ID")
-        if not request_id:
-            request_id = str(uuid.uuid4())
-        status_code = exc.status_code
-        if status_code == 401:
-            code = "UNAUTHORIZED"
-        elif status_code == 403:
-            code = "FORBIDDEN"
-        elif status_code == 404:
-            code = "NOT_FOUND"
-        else:
-            code = "HTTP_ERROR"
-        message = str(exc.detail)
-        origin = request.headers.get("origin")
-        headers = {"X-Request-ID": str(request_id)}
-        if origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
-            headers["Access-Control-Allow-Origin"] = origin
-            headers["Vary"] = "Origin"
-        return JSONResponse(
-            status_code=status_code,
-            content={
-                "error": {
-                    "code": code,
-                    "message": message,
-                    "request_id": request_id,
-                }
-            },
-            headers=headers
+        message = "; ".join(
+            f"{'.'.join(str(x) for x in err.get('loc', []))}: {err.get('msg', '')}"
+            for err in exc.errors()
         )
+        return error_response("VALIDATION_ERROR", message, request_id, 422)
 
-    # Adds a global error handler that injects request_id into all error responses.
-    async def error_handler(request: Request, exc: Exception):
+    @app.exception_handler(StarletteHTTPException)
+    async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
         request_id = getattr(request.state, "request_id", None)
-        if hasattr(exc, "status_code"):
-            status_code = getattr(exc, "status_code", status.HTTP_500_INTERNAL_SERVER_ERROR)
-        else:
-            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        code = getattr(exc, "code", exc.__class__.__name__)
-        message = str(exc)
-        # CORS headers for allowed origins
-        origin = request.headers.get("origin")
-        headers = None
-        if origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
-            headers = {
-                "Access-Control-Allow-Origin": origin,
-                "Vary": "Origin",
-            }
-        logging.getLogger("mph.error").error(traceback.format_exc())
-        resp = error_response(code, message, request_id, status_code)
-        if headers:
-            resp.headers.update(headers)
-        return resp
 
-    app.add_exception_handler(Exception, error_handler)
-    app.add_exception_handler(HTTPException, http_exception_handler)
-    # Patch Starlette's ServerErrorMiddleware to not swallow our handler
-    if hasattr(app, "user_middleware"):
-        for m in app.user_middleware:
-            if isinstance(m, ServerErrorMiddleware):
-                m.debug = True
+        code = "HTTP_ERROR"
+        if exc.status_code == 401:
+            code = "UNAUTHORIZED"
+        elif exc.status_code == 403:
+            code = "FORBIDDEN"
+        elif exc.status_code == 404:
+            code = "NOT_FOUND"
+        elif exc.status_code == 405:
+            code = "METHOD_NOT_ALLOWED"
+
+        return error_response(code, str(getattr(exc, "detail", "")), request_id, exc.status_code)
+
+    @app.exception_handler(HTTPException)
+    async def fastapi_http_exception_handler(request: Request, exc: HTTPException):
+        request_id = getattr(request.state, "request_id", None)
+
+        code = "HTTP_ERROR"
+        if exc.status_code == 401:
+            code = "UNAUTHORIZED"
+        elif exc.status_code == 403:
+            code = "FORBIDDEN"
+
+        return error_response(code, str(getattr(exc, "detail", "")), request_id, exc.status_code)
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        request_id = getattr(request.state, "request_id", None)
+        return error_response("INTERNAL_ERROR", "Internal server error", request_id, 500)

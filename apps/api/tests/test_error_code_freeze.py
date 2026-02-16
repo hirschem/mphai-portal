@@ -64,9 +64,11 @@ def build_test_app() -> FastAPI:
 # Duplicate of _test_router from test_error_schema_enforcement.py
 _test_router = APIRouter()
 
+from app.middleware.error_handlers import error_response
 @_test_router.get("/test-direct-json-error")
-async def direct_json_error():
-    return JSONResponse({"detail": "Invalid password"}, status_code=401)
+async def direct_json_error(request):
+    request_id = getattr(request.state, "request_id", None)
+    return error_response("UNAUTHORIZED", "Invalid password", request_id, 401)
 
 @_test_router.get("/test-direct-json-error-raw")
 async def direct_json_error_raw():
