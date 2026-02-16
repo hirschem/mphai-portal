@@ -41,10 +41,6 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         version="0.1.0"
     )
 
-    @app.get("/__deploy_check__", include_in_schema=False)
-    async def __deploy_check__():
-        return {"deploy": DEPLOY_FINGERPRINT}
-
     @app.get("/health", include_in_schema=False)
     async def health():
         return {"status": "ok"}
@@ -88,7 +84,6 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         "/openapi.json",
         "/redoc",
         "/health",
-        "/__deploy_check__",
     )
     from starlette.routing import Match
 
@@ -164,7 +159,6 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         expose_headers=["X-Request-ID"],
         max_age=86400,
     )
-
 
     # Register routes
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
