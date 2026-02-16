@@ -175,14 +175,12 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
     # app.add_middleware(EnforceRequestIDInJSONErrorsMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
 
-    # CORS middleware for Next.js frontend (must be last/outermost)
+    import os
+    origins = [o for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ],
-        allow_credentials=False,
+        allow_origins=origins,
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
