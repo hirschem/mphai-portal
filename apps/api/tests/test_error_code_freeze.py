@@ -2,77 +2,25 @@
 import pytest
 import json
 import importlib
-from fastapi import FastAPI, APIRouter
-from fastapi.middleware.cors import CORSMiddleware
+from app.main import create_app
+from fastapi import APIRouter, Request
 from starlette.responses import JSONResponse
-from app.middleware.error_handlers import add_global_error_handlers
-from app.middleware.request_id import RequestIDMiddleware
-from app.middleware.enforce_request_id_json_errors import EnforceRequestIDInJSONErrorsMiddleware
-from app.middleware.request_logging import RequestLoggingMiddleware
-from app.middleware.request_size_limit import RequestSizeLimitMiddleware
-from app.models.config import get_settings
-from app.api import transcribe, proposals, history, auth, books
-
-# Duplicate of build_test_app from test_error_schema_enforcement.py
-def build_test_app() -> FastAPI:
-    app = FastAPI(
-        title="MPH Handwriting API",
-        description="Transcribe handwritten proposals to professional documents",
-        version="0.1.0"
-    )
-    add_global_error_handlers(app)
-    app.add_middleware(RequestIDMiddleware)
-    app.add_middleware(EnforceRequestIDInJSONErrorsMiddleware)
-    app.add_middleware(RequestLoggingMiddleware)
-
-    settings = get_settings()
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://localhost:3002",
-            "https://mphai.app",
-            "https://www.mphai.app"
-        ],
-        allow_origin_regex=r"^https://.*\.vercel\.app$",
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-    app.include_router(transcribe.router, prefix="/api/transcribe", tags=["transcribe"])
-    app.include_router(proposals.router, prefix="/api/proposals", tags=["proposals"])
-    app.include_router(history.router, prefix="/api/history", tags=["history"])
-    app.include_router(books.router, prefix="/api/book", tags=["book"])
-
-    @app.get("/")
-    async def root():
-        return {
-            "message": "MPH Handwriting API",
-            "docs": "/docs"
-        }
-
-    @app.get("/health")
-    async def health():
-        return {"status": "ok"}
-
-    return app
-
-# Duplicate of _test_router from test_error_schema_enforcement.py
-_test_router = APIRouter()
-
 from app.middleware.error_handlers import error_response
+
+# Register the test routes at module scope so they are always available
+_test_router = APIRouter()
 @_test_router.get("/test-direct-json-error")
-async def direct_json_error(request):
+async def direct_json_error(request: Request):
     request_id = getattr(request.state, "request_id", None)
     return error_response("UNAUTHORIZED", "Invalid password", request_id, 401)
 
 @_test_router.get("/test-direct-json-error-raw")
 async def direct_json_error_raw():
     return JSONResponse({"detail": "Invalid password", "__marker": "raw"}, status_code=401)
+
+# Create the app and include test routes
+app = create_app()
+app.include_router(_test_router)
 
 ALLOWED_ERROR_CODES = {
     "UNAUTHORIZED",
@@ -122,8 +70,10 @@ def test_error_code_404():
 
 
 def test_error_code_413(monkeypatch):
+
     monkeypatch.setenv("MAX_REQUEST_BYTES", "100")
     monkeypatch.setenv("ENFORCE_REQUEST_SIZE_LIMIT", "1")
+    from app.models.config import get_settings
     get_settings.cache_clear()
 
     import app.main as app_main

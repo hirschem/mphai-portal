@@ -35,7 +35,13 @@ class RedactAuthFilter(logging.Filter):
 for handler in logging.getLogger().handlers:
     handler.addFilter(RedactAuthFilter())
 
-def create_app() -> FastAPI:
+def create_app(settings_override=None, auth_public_paths=None, auth_public_prefixes=None) -> FastAPI:
+    """
+    Factory for FastAPI app. Accepts test overrides:
+      - settings_override: custom settings object (for test isolation)
+      - auth_public_paths: set of exact paths to bypass auth (test-only)
+      - auth_public_prefixes: tuple/list of prefixes to bypass auth (test-only)
+    """
     app = FastAPI(
         title="MPH Handwriting API",
         description="Transcribe handwritten proposals to professional documents",
@@ -76,7 +82,7 @@ def create_app() -> FastAPI:
     # Register request ID middleware first
     app.add_middleware(RequestIDMiddleware)
     # Register AuthGate as function-based middleware (replaces class-based AuthGateMiddleware)
-    PUBLIC_PREFIXES = (
+    DEFAULT_PUBLIC_PREFIXES = (
         "/api/auth",
         "/docs",
         "/openapi.json",
@@ -86,16 +92,17 @@ def create_app() -> FastAPI:
     from fastapi import Request
     from app.middleware.error_handlers import error_response
     from starlette.routing import Match
-    from fastapi import Request
-    from app.middleware.error_handlers import error_response
 
-    PUBLIC_PREFIXES = (
-        "/api/auth",
-        "/docs",
-        "/openapi.json",
-        "/redoc",
-        "/health",
-    )
+    # Allow test to override settings (for rate limiter, etc.)
+    if settings_override is not None:
+        def get_settings_override():
+            return settings_override
+        import app.models.config as config_mod
+        config_mod.get_settings = get_settings_override
+
+    # AuthGate config
+    _public_paths = set(auth_public_paths) if auth_public_paths else set()
+    _public_prefixes = tuple(auth_public_prefixes) if auth_public_prefixes else DEFAULT_PUBLIC_PREFIXES
 
     @app.middleware("http")
     async def auth_gate(request: Request, call_next):
@@ -105,9 +112,13 @@ def create_app() -> FastAPI:
         if method == "OPTIONS":
             return await call_next(request)
 
-        # Public paths only
-        if any(path.startswith(p) for p in PUBLIC_PREFIXES):
-            return await call_next(request)
+        # Public paths or prefixes
+        bypass = (path in _public_paths) or any(path.startswith(p) for p in _public_prefixes)
+        if bypass:
+            resp = await call_next(request)
+            resp.headers["x-auth-bypass"] = "1"
+            resp.headers["x-auth-path"] = path
+            return resp
 
         # Don’t mask 404s: only enforce auth if a route exists for this path
         scope = request.scope
@@ -122,6 +133,30 @@ def create_app() -> FastAPI:
             return await call_next(request)
 
         # Enforce Bearer token
+        auth = (request.headers.get("authorization") or "").strip()
+        if not auth.startswith("Bearer "):
+            rid = getattr(request.state, "request_id", None)
+            resp = error_response("UNAUTHORIZED", "Missing or invalid authorization token", rid, 401)
+            resp.headers["x-auth-bypass"] = "0"
+            resp.headers["x-auth-path"] = path
+            return resp
+
+        token = auth[len("Bearer "):].strip()
+        if not token:
+            rid = getattr(request.state, "request_id", None)
+            resp = error_response("UNAUTHORIZED", "Missing or invalid authorization token", rid, 401)
+            resp.headers["x-auth-bypass"] = "0"
+            resp.headers["x-auth-path"] = path
+            return resp
+
+        resp = await call_next(request)
+        resp.headers["x-auth-bypass"] = "0"
+        resp.headers["x-auth-path"] = path
+        return resp
+
+    # ...existing code...
+
+    # ...existing code...
         auth = (request.headers.get("authorization") or "").strip()
         if not auth.startswith("Bearer "):
             rid = getattr(request.state, "request_id", None)
