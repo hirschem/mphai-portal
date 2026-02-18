@@ -35,11 +35,17 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
       - auth_public_prefixes: tuple/list of prefixes to bypass auth (test-only)
     """
 
+    import os
+    logger = logging.getLogger(__name__)
+
     app = FastAPI(
         title="MPH Handwriting API",
         description="Transcribe handwritten proposals to professional documents",
         version="0.1.0"
     )
+
+    demo_pw = os.getenv("DEMO_PASSWORD")
+    print(f"=== STARTUP demo_password_configured={bool(demo_pw)} ===")
 
     @app.get("/health", include_in_schema=False)
     async def health():
