@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     # Authentication
-        demo_password: str = Field(alias="DEMO_PASSWORD", default=None)
-        admin_password: str = Field(alias="ADMIN_PASSWORD", default=None)
+    demo_password: str = Field(alias="DEMO_PASSWORD", default=None)
+    admin_password: str = Field(alias="ADMIN_PASSWORD", default=None)
 
     # Rate limiting
     login_rate_limit: int = Field(default=5, validation_alias="LOGIN_RATE_LIMIT")
@@ -33,11 +33,6 @@ class Settings(BaseSettings):
                 "OPENAI_API_KEY environment variable must be set for OpenAI access."
             )
 
-    from functools import lru_cache
-
-
-@lru_cache
-from functools import lru_cache
 
 @lru_cache
 def get_settings() -> Settings:

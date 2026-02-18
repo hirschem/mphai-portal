@@ -1,0 +1,143 @@
+﻿app\ai\schema_v1.py:1:52: F401 [*] `pydantic.ValidationError` imported but unused
+app\api\admin_saves.py:4:41: F401 [*] `fastapi.HTTPException` imported but unused
+app\api\admin_saves.py:4:65: F401 [*] `fastapi.status` imported but unused
+app\api\admin_saves.py:5:31: F401 [*] `fastapi.responses.JSONResponse` imported but unused
+app\api\admin_saves.py:13:1: E402 Module level import not at top of file
+app\api\admin_saves.py:13:21: F811 [*] Redefinition of unused `Depends` from line 4: `Depends` redefined here
+app\api\admin_saves.py:14:1: E402 Module level import not at top of file
+app\api\admin_saves.py:14:22: F811 [*] Redefinition of unused `require_auth` from line 8: `require_auth` redefined here
+app\api\admin_saves.py:15:1: E402 Module level import not at top of file
+app\api\admin_saves.py:15:21: F811 [*] Redefinition of unused `Depends` from line 13: `Depends` redefined here
+app\api\admin_saves.py:16:1: E402 Module level import not at top of file
+app\api\admin_saves.py:16:22: F811 [*] Redefinition of unused `require_auth` from line 14: `require_auth` redefined here
+app\api\admin_saves.py:17:1: E402 Module level import not at top of file
+app\api\admin_saves.py:17:21: F811 [*] Redefinition of unused `Depends` from line 15: `Depends` redefined here
+app\api\admin_saves.py:18:1: E402 Module level import not at top of file
+app\api\admin_saves.py:18:22: F811 [*] Redefinition of unused `require_auth` from line 16: `require_auth` redefined here
+app\api\admin_saves.py:49:1: E402 Module level import not at top of file
+app\api\admin_saves.py:50:1: E402 Module level import not at top of file
+app\api\books.py:2:65: F401 [*] `fastapi.HTTPException` imported but unused
+app\api\books.py:10:21: F401 [*] `pathlib.Path` imported but unused
+app\api\books.py:15:21: F811 [*] Redefinition of unused `Depends` from line 2: `Depends` redefined here
+app\api\books.py:16:22: F811 [*] Redefinition of unused `require_auth` from line 8: `require_auth` redefined here
+app\api\books.py:16:36: F811 [*] Redefinition of unused `require_admin` from line 8: `require_admin` redefined here
+app\api\books.py:17:21: F811 [*] Redefinition of unused `Depends` from line 15: `Depends` redefined here
+app\api\books.py:18:22: F811 [*] Redefinition of unused `require_auth` from line 16: `require_auth` redefined here
+app\api\books.py:65:1: E402 Module level import not at top of file
+app\api\books.py:66:1: E402 Module level import not at top of file
+app\api\books.py:66:22: F811 [*] Redefinition of unused `require_admin` from line 16: `require_admin` redefined here
+app\api\books.py:110:1: E402 Module level import not at top of file
+app\api\books.py:111:1: E402 Module level import not at top of file
+app\api\history.py:6:21: F401 [*] `pathlib.Path` imported but unused
+app\api\history.py:10:21: F811 [*] Redefinition of unused `Depends` from line 2: `Depends` redefined here
+app\api\history.py:11:22: F811 [*] Redefinition of unused `require_admin` from line 5: `require_admin` redefined here
+app\api\history.py:12:21: F811 [*] Redefinition of unused `Depends` from line 10: `Depends` redefined here
+app\api\history.py:20:1: E402 Module level import not at top of file
+app\api\history.py:21:1: E402 Module level import not at top of file
+app\api\history.py:21:22: F811 [*] Redefinition of unused `require_admin` from line 11: `require_admin` redefined here
+app\api\history.py:22:1: E402 Module level import not at top of file
+app\api\history.py:23:1: E402 Module level import not at top of file
+app\api\history.py:23:22: F811 [*] Redefinition of unused `require_admin` from line 21: `require_admin` redefined here
+app\api\history.py:66:29: F841 [*] Local variable `e` is assigned to but never used
+app\api\proposals.py:14:21: F811 [*] Redefinition of unused `Depends` from line 3: `Depends` redefined here
+app\api\proposals.py:15:22: F811 [*] Redefinition of unused `require_auth` from line 5: `require_auth` redefined here
+app\api\proposals.py:31:1: E402 Module level import not at top of file
+app\api\proposals.py:32:1: E402 Module level import not at top of file
+app\api\transcribe.py:1:50: F401 [*] `fastapi.HTTPException` imported but unused
+app\api\transcribe.py:10:21: F811 [*] Redefinition of unused `Depends` from line 1: `Depends` redefined here
+app\api\transcribe.py:11:22: F811 [*] Redefinition of unused `require_auth` from line 2: `require_auth` redefined here
+app\api\transcribe.py:12:21: F811 [*] Redefinition of unused `Depends` from line 10: `Depends` redefined here
+app\api\transcribe.py:13:22: F811 [*] Redefinition of unused `require_auth` from line 11: `require_auth` redefined here
+app\api\transcribe.py:26:1: E402 Module level import not at top of file
+app\api\transcribe.py:27:1: E402 Module level import not at top of file
+app\auth.py:3:44: F401 [*] `fastapi.Depends` imported but unused
+app\auth.py:44:1: E402 Module level import not at top of file
+app\auth.py:54:29: F841 [*] Local variable `exc` is assigned to but never used
+app\main.py:9:31: F401 [*] `app.models.config.get_settings` imported but unused
+app\main.py:40:5: F841 Local variable `logger` is assigned to but never used
+app\main.py:181:47: F811 [*] Redefinition of unused `error_response` from line 62: `error_response` redefined here
+app\middleware\auth_gate.py:5:29: F401 [*] `starlette.types.ASGIApp` imported but unused
+app\middleware\auth_gate.py:5:38: F401 [*] `starlette.types.Receive` imported but unused
+app\middleware\auth_gate.py:5:47: F401 [*] `starlette.types.Scope` imported but unused
+app\middleware\auth_gate.py:5:54: F401 [*] `starlette.types.Send` imported but unused
+app\middleware\auth_gate.py:6:31: F401 [*] `starlette.routing.Match` imported but unused
+app\middleware\auth_gate.py:7:43: F401 [*] `app.middleware.error_handlers.error_response` imported but unused
+app\middleware\auth_gate.py:8:8: F811 [*] Redefinition of unused `uuid` from line 3: `uuid` redefined here
+app\middleware\auth_gate.py:8:8: F401 [*] `uuid` imported but unused
+app\middleware\request_id.py:21:42: F401 [*] `starlette.background.BackgroundTask` imported but unused
+app\middleware\request_logging.py:5:20: F401 [*] `typing.Callable` imported but unused
+app\middleware\request_logging.py:5:30: F401 [*] `typing.Optional` imported but unused
+app\middleware\request_size_limit.py:3:8: F401 [*] `json` imported but unused
+app\middleware\request_size_limit.py:4:30: F401 [*] `typing.Optional` imported but unused
+app\security\rate_limit.py:3:38: F811 [*] Redefinition of unused `HTTP_429_TOO_MANY_REQUESTS` from line 13: `HTTP_429_TOO_MANY_REQUESTS` redefined here
+app\security\rate_limit.py:10:1: E402 Module level import not at top of file
+app\security\rate_limit.py:11:1: E402 Module level import not at top of file
+app\security\rate_limit.py:12:1: E402 Module level import not at top of file
+app\security\rate_limit.py:12:30: F401 [*] `fastapi.HTTPException` imported but unused
+app\security\rate_limit.py:13:1: E402 Module level import not at top of file
+app\security\rate_limit.py:13:30: F401 [*] `starlette.status.HTTP_429_TOO_MANY_REQUESTS` imported but unused
+app\security\rate_limit.py:14:1: E402 Module level import not at top of file
+app\security\rate_limit.py:14:20: F401 [*] `typing.Callable` imported but unused
+app\services\export_service.py:6:34: F401 [*] `reportlab.lib.colors.HexColor` imported but unused
+app\services\export_service.py:48:16: F401 [*] `os` imported but unused
+app\services\export_service.py:124:27: E741 Ambiguous variable name: `l`
+app\services\export_service.py:177:227: E741 Ambiguous variable name: `l`
+app\services\export_service.py:217:13: F841 Local variable `MAX_TOTAL_AMOUNT_STR` is assigned to but never used
+app\services\export_service.py:453:21: F541 [*] f-string without any placeholders
+app\services\export_service.py:456:21: F541 [*] f-string without any placeholders
+app\services\formatting_service.py:152:23: F821 Undefined name `PROMPT_PREFIX`
+app\services\formatting_service.py:166:19: F821 Undefined name `validate_ai_doc_v1`
+app\services\formatting_service.py:169:23: F821 Undefined name `_format_validation_errors`
+app\services\formatting_service.py:179:24: F821 Undefined name `validate_ai_doc_v1`
+app\services\formatting_service.py:182:23: F821 Undefined name `StandardizedAIError`
+app\services\formatting_service.py:185:69: F821 Undefined name `_format_validation_errors`
+app\templates\generate_invoice_templates.py:6:1: E402 Module level import not at top of file
+app\templates\generate_invoice_templates.py:41:1: E402 Module level import not at top of file
+app\templates\generate_invoice_templates.py:42:1: E402 Module level import not at top of file
+app\templates\generate_invoice_templates.py:44:1: E402 Module level import not at top of file
+app\templates\generate_invoice_templates.py:45:1: E402 Module level import not at top of file
+app\templates\generate_invoice_templates.py:46:1: E402 Module level import not at top of file
+app\templates\generate_invoice_templates.py:47:1: E402 Module level import not at top of file
+app\templates\generate_invoice_templates.py:223:5: F841 Local variable `logo_h` is assigned to but never used
+tests\conftest.py:2:8: F401 [*] `json` imported but unused
+tests\conftest.py:66:1: E402 Module level import not at top of file
+tests\test_api_write_failure_returns_standard_error_shape.py:1:8: F401 [*] `pytest` imported but unused
+tests\test_atomic_write.py:6:8: F401 [*] `tempfile` imported but unused
+tests\test_atomic_write.py:7:8: F401 [*] `os` imported but unused
+tests\test_atomic_write.py:8:8: F401 [*] `asyncio` imported but unused
+tests\test_auth_enforcement.py:18:1: E402 Module level import not at top of file
+tests\test_auth_enforcement.py:199:1: E402 Module level import not at top of file
+tests\test_auth_enforcement.py:200:1: E402 Module level import not at top of file
+tests\test_auth_enforcement.py:201:1: E402 Module level import not at top of file
+tests\test_auth_enforcement.py:202:1: E402 Module level import not at top of file
+tests\test_auth_enforcement.py:208:1: E402 Module level import not at top of file
+tests\test_auth_enforcement.py:221:1: E402 Module level import not at top of file
+tests\test_auth_enforcement.py:249:1: E402 Module level import not at top of file
+tests\test_auth_enforcement.py:249:29: F811 [*] Redefinition of unused `APIRoute` from line 221: `APIRoute` redefined here
+tests\test_auth_protection.py:6:1: E402 Module level import not at top of file
+tests\test_auth_protection.py:7:1: E402 Module level import not at top of file
+tests\test_auth_protection.py:7:27: F401 [*] `unittest.mock.AsyncMock` imported but unused
+tests\test_auth_protection.py:27:31: F811 [*] Redefinition of unused `AsyncMock` from line 7: `AsyncMock` redefined here
+tests\test_enforce_request_id_json_errors.py:1:8: F401 [*] `pytest` imported but unused
+tests\test_enforce_request_id_json_errors.py:4:33: F401 [*] `starlette.responses.JSONResponse` imported but unused
+tests\test_enforce_request_id_json_errors.py:9:1: E402 Module level import not at top of file
+tests\test_error_code_freeze.py:2:8: F401 [*] `pytest` imported but unused
+tests\test_invoice_generation.py:8:1: E402 Module level import not at top of file
+tests\test_invoice_generation.py:8:8: F401 [*] `os` imported but unused
+tests\test_invoice_generation.py:9:1: E402 Module level import not at top of file
+tests\test_invoice_generation.py:10:1: E402 Module level import not at top of file
+tests\test_invoice_generation.py:10:8: F811 [*] Redefinition of unused `pytest` from line 2: `pytest` redefined here
+tests\test_invoice_generation.py:11:1: E402 Module level import not at top of file
+tests\test_invoice_generation.py:12:1: E402 Module level import not at top of file
+tests\test_protected_history_list_returns_standard_error_shape.py:1:8: F401 [*] `pytest` imported but unused
+tests\test_rate_limit.py:1:8: F401 [*] `pytest` imported but unused
+tests\test_rate_limit.py:4:8: F401 [*] `time` imported but unused
+tests\test_rate_limit.py:55:5: F841 Local variable `orig_save` is assigned to but never used
+tests\test_rate_limit.py:72:1: E402 Module level import not at top of file
+tests\test_rate_limit.py:73:1: E402 Module level import not at top of file
+tests\test_rate_limit.py:82:5: F811 Redefinition of unused `test_rate_limit_no_file_write_on_429` from line 49: `test_rate_limit_no_file_write_on_429` redefined here
+tests\test_rate_limit.py:104:5: F841 Local variable `snap_before` is assigned to but never used
+tests\test_request_id.py:1:8: F401 [*] `pytest` imported but unused
+tests\test_request_size_limit.py:1:8: F401 [*] `pytest` imported but unused
+Found 141 errors.
+[*] 75 fixable with the `--fix` option (5 hidden fixes can be enabled with the `--unsafe-fixes` option).

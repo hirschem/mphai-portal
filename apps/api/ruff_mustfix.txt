@@ -1,0 +1,71 @@
+﻿
+ruff_report.txt:6:app\api\admin_saves.py:13:21: F811 [*] Redefinition of unused `Depends` from line 4: 
+`Depends` redefined here
+ruff_report.txt:8:app\api\admin_saves.py:14:22: F811 [*] Redefinition of unused `require_auth` from line 8: 
+`require_auth` redefined here
+ruff_report.txt:10:app\api\admin_saves.py:15:21: F811 [*] Redefinition of unused `Depends` from line 13: 
+`Depends` redefined here
+ruff_report.txt:12:app\api\admin_saves.py:16:22: F811 [*] Redefinition of unused `require_auth` from line 14: 
+`require_auth` redefined here
+ruff_report.txt:14:app\api\admin_saves.py:17:21: F811 [*] Redefinition of unused `Depends` from line 15: 
+`Depends` redefined here
+ruff_report.txt:16:app\api\admin_saves.py:18:22: F811 [*] Redefinition of unused `require_auth` from line 16: 
+`require_auth` redefined here
+ruff_report.txt:21:app\api\books.py:15:21: F811 [*] Redefinition of unused `Depends` from line 2: `Depends` 
+redefined here
+ruff_report.txt:22:app\api\books.py:16:22: F811 [*] Redefinition of unused `require_auth` from line 8: 
+`require_auth` redefined here
+ruff_report.txt:23:app\api\books.py:16:36: F811 [*] Redefinition of unused `require_admin` from line 8: 
+`require_admin` redefined here
+ruff_report.txt:24:app\api\books.py:17:21: F811 [*] Redefinition of unused `Depends` from line 15: `Depends` 
+redefined here
+ruff_report.txt:25:app\api\books.py:18:22: F811 [*] Redefinition of unused `require_auth` from line 16: 
+`require_auth` redefined here
+ruff_report.txt:28:app\api\books.py:66:22: F811 [*] Redefinition of unused `require_admin` from line 16: 
+`require_admin` redefined here
+ruff_report.txt:32:app\api\history.py:10:21: F811 [*] Redefinition of unused `Depends` from line 2: `Depends` 
+redefined here
+ruff_report.txt:33:app\api\history.py:11:22: F811 [*] Redefinition of unused `require_admin` from line 5: 
+`require_admin` redefined here
+ruff_report.txt:34:app\api\history.py:12:21: F811 [*] Redefinition of unused `Depends` from line 10: `Depends` 
+redefined here
+ruff_report.txt:37:app\api\history.py:21:22: F811 [*] Redefinition of unused `require_admin` from line 11: 
+`require_admin` redefined here
+ruff_report.txt:40:app\api\history.py:23:22: F811 [*] Redefinition of unused `require_admin` from line 21: 
+`require_admin` redefined here
+ruff_report.txt:42:app\api\proposals.py:14:21: F811 [*] Redefinition of unused `Depends` from line 3: 
+`Depends` redefined here
+ruff_report.txt:43:app\api\proposals.py:15:22: F811 [*] Redefinition of unused `require_auth` from line 5: 
+`require_auth` redefined here
+ruff_report.txt:47:app\api\transcribe.py:10:21: F811 [*] Redefinition of unused `Depends` from line 1: 
+`Depends` redefined here
+ruff_report.txt:48:app\api\transcribe.py:11:22: F811 [*] Redefinition of unused `require_auth` from line 2: 
+`require_auth` redefined here
+ruff_report.txt:49:app\api\transcribe.py:12:21: F811 [*] Redefinition of unused `Depends` from line 10: 
+`Depends` redefined here
+ruff_report.txt:50:app\api\transcribe.py:13:22: F811 [*] Redefinition of unused `require_auth` from line 11: 
+`require_auth` redefined here
+ruff_report.txt:58:app\main.py:181:47: F811 [*] Redefinition of unused `error_response` from line 62: 
+`error_response` redefined here
+ruff_report.txt:65:app\middleware\auth_gate.py:8:8: F811 [*] Redefinition of unused `uuid` from line 3: `uuid` 
+redefined here
+ruff_report.txt:72:app\security\rate_limit.py:3:38: F811 [*] Redefinition of unused 
+`HTTP_429_TOO_MANY_REQUESTS` from line 13: `HTTP_429_TOO_MANY_REQUESTS` redefined here
+ruff_report.txt:86:app\services\export_service.py:453:21: F541 [*] f-string without any placeholders
+ruff_report.txt:87:app\services\export_service.py:456:21: F541 [*] f-string without any placeholders
+ruff_report.txt:88:app\services\formatting_service.py:152:23: F821 Undefined name `PROMPT_PREFIX`
+ruff_report.txt:89:app\services\formatting_service.py:166:19: F821 Undefined name `validate_ai_doc_v1`
+ruff_report.txt:90:app\services\formatting_service.py:169:23: F821 Undefined name `_format_validation_errors`
+ruff_report.txt:91:app\services\formatting_service.py:179:24: F821 Undefined name `validate_ai_doc_v1`
+ruff_report.txt:92:app\services\formatting_service.py:182:23: F821 Undefined name `StandardizedAIError`
+ruff_report.txt:93:app\services\formatting_service.py:185:69: F821 Undefined name `_format_validation_errors`
+ruff_report.txt:116:tests\test_auth_enforcement.py:249:29: F811 [*] Redefinition of unused `APIRoute` from 
+line 221: `APIRoute` redefined here
+ruff_report.txt:120:tests\test_auth_protection.py:27:31: F811 [*] Redefinition of unused `AsyncMock` from line 
+7: `AsyncMock` redefined here
+ruff_report.txt:129:tests\test_invoice_generation.py:10:8: F811 [*] Redefinition of unused `pytest` from line 
+2: `pytest` redefined here
+ruff_report.txt:138:tests\test_rate_limit.py:82:5: F811 Redefinition of unused 
+`test_rate_limit_no_file_write_on_429` from line 49: `test_rate_limit_no_file_write_on_429` redefined here
+
+
