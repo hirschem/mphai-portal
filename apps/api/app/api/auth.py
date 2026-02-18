@@ -48,7 +48,7 @@ async def login(payload: LoginRequest, req: Request):
         # Any unexpected auth error should still be shaped
         return error_response("UNAUTHORIZED", "Invalid credentials", request_id, 401)
 
-    if level != "admin":
+    if level not in ("admin", "demo"):
         return error_response("UNAUTHORIZED", "Invalid credentials", request_id, 401)
 
     return {"level": level}

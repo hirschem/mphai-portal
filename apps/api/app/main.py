@@ -1,4 +1,5 @@
 import logging
+from app.models.config import get_settings
 import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +10,13 @@ from app.middleware.request_logging import RequestLoggingMiddleware
 from app.models.config import get_settings
 from app.middleware.request_size_limit import RequestSizeLimitMiddleware
 
+
 DEPLOY_FINGERPRINT = "cors-v2-20260216-1849"
+
+# Fail fast on missing required env vars
+settings = get_settings()
+assert settings.demo_password, "DEMO_PASSWORD env var is required"
+assert settings.admin_password, "ADMIN_PASSWORD env var is required"
 
 # --- Redact Authorization header in logs (minimal filter) ---
 class RedactAuthFilter(logging.Filter):

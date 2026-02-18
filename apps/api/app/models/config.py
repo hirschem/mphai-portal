@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     # Authentication
-    demo_password: str = Field(validation_alias="DEMO_PASSWORD", default="demo2024")
-    admin_password: str = Field(validation_alias="ADMIN_PASSWORD", default="mph_admin_2024")
+        demo_password: str = Field(alias="DEMO_PASSWORD", default=None)
+        admin_password: str = Field(alias="ADMIN_PASSWORD", default=None)
 
     # Rate limiting
     login_rate_limit: int = Field(default=5, validation_alias="LOGIN_RATE_LIMIT")
@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=False
+        case_sensitive=False,
+        populate_by_name=True,
     )
 
     def __post_init_post_parse__(self):
@@ -32,6 +33,11 @@ class Settings(BaseSettings):
                 "OPENAI_API_KEY environment variable must be set for OpenAI access."
             )
 
+    from functools import lru_cache
+
+
+@lru_cache
+from functools import lru_cache
 
 @lru_cache
 def get_settings() -> Settings:
