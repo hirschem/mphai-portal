@@ -1,4 +1,5 @@
 import logging
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import transcribe, proposals, history, auth, books
@@ -194,5 +195,8 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
 
 # Uvicorn entrypoint
 # --- Exported app instance for runtime and tests ---
+
+demo_pw = os.getenv("DEMO_PASSWORD")
+print(f"=== STARTUP demo_password_configured={bool(demo_pw)} ===", flush=True)
 app = create_app()
 fastapi_app = app
