@@ -63,9 +63,12 @@ def generate_doc(user_prompt, llm_client):
             )
 
 class FormattingService:
-        async def rewrite_professional(self, user_prompt):
-            client = AsyncOpenAI(api_key=settings.openai_api_key)
-            return self.generate_doc(user_prompt, client)
+    def __init__(self):
+        self.client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    async def rewrite_professional(self, raw_text: str) -> str:
+        return await self.generate_doc(raw_text, self.client)
+
     @staticmethod
     def generate_doc(user_prompt, llm_client):
         return generate_doc(user_prompt, llm_client)
