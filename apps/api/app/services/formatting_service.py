@@ -1,3 +1,6 @@
+    async def rewrite_professional(self, user_prompt):
+        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        return self.generate_doc(user_prompt, client)
 from openai import AsyncOpenAI
 from app.models.config import get_settings
 from app.models.schemas import ProposalData
@@ -60,6 +63,9 @@ def generate_doc(user_prompt, llm_client):
             )
 
 class FormattingService:
+        async def rewrite_professional(self, user_prompt):
+            client = AsyncOpenAI(api_key=settings.openai_api_key)
+            return self.generate_doc(user_prompt, client)
     @staticmethod
     def generate_doc(user_prompt, llm_client):
         return generate_doc(user_prompt, llm_client)

@@ -57,11 +57,6 @@ async def generate_proposal(payload: ProposalRequest, request: Request, auth_lev
     try:
         rate_limiter.check(ip, "generate", 3)
     except HTTPException as exc:
-        raise exc
-
-    document_type = getattr(payload, "document_type", None) or "proposal"
-    logger.info(f"[generate_proposal] session_id={payload.session_id} document_type={document_type}")
-    try:
         # Rewrite as professional construction proposal/invoice
         professional_text = await get_formatting_service().rewrite_professional(payload.raw_text)
         logger.info(f"[rewrite_professional] session_id={payload.session_id} done")
@@ -78,6 +73,7 @@ async def generate_proposal(payload: ProposalRequest, request: Request, auth_lev
         await export_service.export_document(payload.session_id, proposal_data, professional_text, "pdf", document_type=document_type)
         logger.info(f"[export_document] session_id={payload.session_id} done")
 
+        return ProposalResponse(**proposal_data)
         # Backward compatible: proposal_data, new: document_data, document_type
         return ProposalResponse(
             session_id=payload.session_id,
