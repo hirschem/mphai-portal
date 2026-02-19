@@ -38,6 +38,9 @@ class FakeOpenAI:
 	def create(self, *args, **kwargs):
 		content = self._get(args, kwargs)
 		return type("Resp", (), {"output_text": content})()
+	def generate(self, *args, **kwargs):
+		# Simulate OpenAI completion API for tests
+		return self._get(args, kwargs)
 
 @pytest.fixture(autouse=True)
 def patch_openai_everywhere(monkeypatch):

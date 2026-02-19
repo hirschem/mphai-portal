@@ -37,7 +37,7 @@ def error_response(
         "error": error_obj,
     }
     if include_detail:
-        payload["detail"] = {"error": detail_error if detail_error is not None else error_obj}
+        payload["detail"] = {"error": error_obj}
 
     return JSONResponse(
         status_code=status_code,

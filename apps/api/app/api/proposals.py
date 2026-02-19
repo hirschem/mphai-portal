@@ -34,10 +34,8 @@ from app.auth import require_auth
 async def generate_proposal(payload: ProposalRequest, request: Request, auth_level: str = Depends(require_auth)):
     """Convert transcribed text to professional proposal or invoice"""
     # Rate limit check (after validation/auth, before any side effects)
-    # Extract headers and client IP for rate limiting
     import inspect
     from starlette.datastructures import Headers as StarletteHeaders
-    # Try to get headers from context (test or prod)
     headers = {}
     client_host = "127.0.0.1"
     frame = inspect.currentframe()
@@ -47,17 +45,15 @@ async def generate_proposal(payload: ProposalRequest, request: Request, auth_lev
         if "client_host" in frame.f_locals:
             client_host = frame.f_locals["client_host"]
         frame = frame.f_back
-    # If headers is a list (ASGI raw), wrap with Headers for .get()
     if isinstance(headers, list):
         headers = StarletteHeaders(raw=headers)
-    # Use X-Forwarded-For if present (headers as dict for .get())
     headers = dict(request.headers)
     xff = headers.get("x-forwarded-for")
     ip = xff.split(",")[0].strip() if xff else client_host
     try:
         rate_limiter.check(ip, "generate", 3)
-    except HTTPException as exc:
         # Rewrite as professional construction proposal/invoice
+        document_type = getattr(payload, "document_type", "proposal")
         professional_text = await get_formatting_service().rewrite_professional(payload.raw_text)
         logger.info(f"[rewrite_professional] session_id={payload.session_id} done")
 
@@ -73,8 +69,6 @@ async def generate_proposal(payload: ProposalRequest, request: Request, auth_lev
         await export_service.export_document(payload.session_id, proposal_data, professional_text, "pdf", document_type=document_type)
         logger.info(f"[export_document] session_id={payload.session_id} done")
 
-        return ProposalResponse(**proposal_data)
-        # Backward compatible: proposal_data, new: document_data, document_type
         return ProposalResponse(
             session_id=payload.session_id,
             professional_text=professional_text,
@@ -84,9 +78,17 @@ async def generate_proposal(payload: ProposalRequest, request: Request, auth_lev
             status="generated"
         )
     except Exception as e:
+        from app.security.rate_limit import RateLimitException
+        if isinstance(e, RateLimitException):
+            # Return a 429 error response with detail
+            request_id = getattr(request.state, "request_id", None)
+            return error_response("rate_limited", e.message, request_id, e.status_code, include_detail=True)
         logger.error(f"[generate_proposal] session_id={getattr(request, 'session_id', None)} error: {e}", exc_info=True)
         request_id = getattr(request.state, "request_id", None)
         return error_response("server_error", f"Failed to generate document: {e}", request_id, 500)
+    # Final guard: never return None
+    rid = getattr(request.state, "request_id", None) or request.headers.get("x-request-id")
+    return error_response("INTERNAL_ERROR", "Generate failed", rid, 500)
 
 
 @router.post("/export/{session_id}", dependencies=[Depends(require_auth)])

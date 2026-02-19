@@ -1,3 +1,9 @@
+def _b64u_encode(b: bytes) -> str:
+    return base64.urlsafe_b64encode(b).decode().rstrip("=")
+
+def _b64u_decode(s: str) -> bytes:
+    pad = "=" * (-len(s) % 4)
+    return base64.urlsafe_b64decode((s + pad).encode())
 import os
 import base64
 import hmac
@@ -9,8 +15,9 @@ def verify_access_token(token: str) -> str:
     """Verify minimal access_token and return level if valid, else raise HTTPException(401)"""
     secret = os.environ.get("ADMIN_PASSWORD", "demo2026")
     try:
-        decoded = base64.urlsafe_b64decode(token.encode())
-        payload, sig = decoded.rsplit(b".", 1)
+        payload_b64, sig_b64 = token.split(".", 1)
+        payload = _b64u_decode(payload_b64)
+        sig = _b64u_decode(sig_b64)
         expected_sig = hmac.new(secret.encode(), payload, hashlib.sha256).digest()
         if not hmac.compare_digest(sig, expected_sig):
             raise ValueError("Invalid signature")

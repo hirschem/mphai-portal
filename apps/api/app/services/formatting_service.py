@@ -1,13 +1,11 @@
-    async def rewrite_professional(self, user_prompt):
-        client = AsyncOpenAI(api_key=settings.openai_api_key)
-        return self.generate_doc(user_prompt, client)
+
+
 from openai import AsyncOpenAI
 from app.models.config import get_settings
 from app.models.schemas import ProposalData
 import json
 import logging
 logger = logging.getLogger("api.formatting_service")
-
 settings = get_settings()
 
 from app.errors import StandardizedAIError
@@ -66,9 +64,10 @@ class FormattingService:
     def __init__(self):
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-    async def rewrite_professional(self, raw_text: str) -> str:
-        return await self.generate_doc(raw_text, self.client)
-
     @staticmethod
-    def generate_doc(user_prompt, llm_client):
+    async def generate_doc(user_prompt, llm_client):
+        # KEEP your existing implementation here
         return generate_doc(user_prompt, llm_client)
+
+    async def rewrite_professional(self, user_prompt: str) -> str:
+        return await self.generate_doc(user_prompt, self.client)

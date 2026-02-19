@@ -20,7 +20,7 @@ def test_login_rate_limit(monkeypatch):
         assert resp.status_code == 200
     resp = client.post("/api/auth/login", json={"password": "testpass"}, headers=headers)
     assert resp.status_code == 429
-    assert resp.json()["detail"]["error"] == "Too many requests"
+    assert resp.json()["detail"]["error"]["message"] == "Too many requests: Rate limit exceeded for login"
     # Advance time to next window
     t[0] += 61
     resp = client.post("/api/auth/login", json={"password": "testpass"}, headers=headers)
@@ -41,7 +41,8 @@ def test_generate_rate_limit(monkeypatch):
         assert resp.status_code != 429
     resp = client.post("/api/proposals/generate", json=payload, headers=headers)
     assert resp.status_code == 429
-    assert resp.json()["detail"]["error"] == "Too many requests"
+    print("RESPONSE:", resp.json())
+    assert resp.json()["detail"]["error"]["message"] == "Too many requests: Rate limit exceeded for generate"
     t[0] += 61
     resp = client.post("/api/proposals/generate", json=payload, headers=headers)
     assert resp.status_code != 429
