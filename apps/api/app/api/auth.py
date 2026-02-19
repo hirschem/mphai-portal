@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from app.auth import get_auth_level
+from app.security.tokens import create_access_token
 from app.security.rate_limit import RateLimiter, RateLimitException
 from app.middleware.error_handlers import error_response
 
@@ -51,5 +52,6 @@ async def login(payload: LoginRequest, req: Request):
     if level not in ("admin", "demo"):
         return error_response("UNAUTHORIZED", "Invalid credentials", request_id, 401)
 
-    return {"level": level}
+    token = create_access_token({"level": level})
+    return {"access_token": token, "token_type": "bearer", "level": level}
 

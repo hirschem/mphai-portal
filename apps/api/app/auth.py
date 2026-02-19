@@ -37,9 +37,16 @@ def get_auth_level(password: str) -> str:
     raise HTTPException(status_code=401, detail="Invalid password")
 
 def require_auth(authorization: Optional[str] = Header(None)) -> str:
-    """Dependency to require demo or admin password"""
-    password = parse_bearer_token(authorization)   # should raise HTTPException(401) if missing/invalid
-    return get_auth_level(password)                # should return "user"/"admin" or raise 401
+    """Dependency to require demo or admin password or valid access_token"""
+    token = parse_bearer_token(authorization)
+    # Try as password first (legacy/demo)
+    try:
+        return get_auth_level(token)
+    except HTTPException:
+        pass
+    # Try as access_token
+    from app.security.verify_token import verify_access_token
+    return verify_access_token(token)
 
 from fastapi import Request
 def require_admin(request: Request):
