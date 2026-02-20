@@ -34,15 +34,19 @@ def test_generate_rate_limit(monkeypatch):
         "raw_text": "test",
         "document_type": "proposal"
     }
-    # Provide Authorization header for test bypass
-    headers = {"Authorization": "Bearer testpass"}
+    # Provide Authorization header and stable IP for deterministic rate limiting
+    headers = {"Authorization": "Bearer testpass", "X-Forwarded-For": "1.2.3.4"}
+    # First GENERATE_LIMIT requests should NOT be rate limited (may be 500, just not 429)
     for i in range(GENERATE_LIMIT):
         resp = client.post("/api/proposals/generate", json=payload, headers=headers)
         assert resp.status_code != 429
+    # Next request should be rate limited
     resp = client.post("/api/proposals/generate", json=payload, headers=headers)
     assert resp.status_code == 429
-    print("RESPONSE:", resp.json())
-    assert resp.json()["detail"]["error"]["message"] == "Too many requests: Rate limit exceeded for generate"
+    data = resp.json()
+    assert data["error_code"] == "RATE_LIMITED"
+    assert data["message"] == "Rate limit exceeded."
+    # After time window reset, should not be rate limited
     t[0] += 61
     resp = client.post("/api/proposals/generate", json=payload, headers=headers)
     assert resp.status_code != 429
