@@ -1,3 +1,21 @@
+# === SECURITY-CRITICAL MIDDLEWARE ORDER ===
+#
+# DO NOT REORDER middleware below without updating tests and reviewing security.
+# The order is intentional and required for:
+#   - Deterministic request_id assignment (RequestIDMiddleware)
+#   - Deterministic error contract (error handlers)
+#   - Auth enforcement (AuthGate)
+#   - Logging and request size limits
+#
+# Current order (outermost to innermost):
+#   1. CORS (added last, wraps all)
+#   2. RequestLoggingMiddleware
+#   3. RequestSizeLimitMiddleware
+#   4. RequestIDMiddleware
+#   5. AuthGate (function-based middleware)
+#
+# Changing this order may break security, error handling, or determinism.
+
 import logging
 from app.models.config import get_settings
 import os
