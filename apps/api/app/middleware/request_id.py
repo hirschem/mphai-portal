@@ -21,7 +21,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         from starlette.background import BackgroundTask
 
         incoming = request.headers.get(REQUEST_ID_HEADER)
-        request_id = incoming.strip() if incoming else str(uuid.uuid4())
+        request_id = incoming.strip() if incoming and incoming.strip() else str(uuid.uuid4())
         request.state.request_id = request_id
         # Ensure ASGI scope has state for downstream ASGI middleware
         if hasattr(request, 'scope') and isinstance(request.scope, dict):
@@ -29,30 +29,40 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers[REQUEST_ID_HEADER] = request_id
 
-        # If this is a JSON error response (status >= 400), inject request_id if missing
-        if response.status_code >= 400 and response.media_type == "application/json":
+        # Option B: Inject request_id into ANY JSON dict response if missing (success + error).
+        # NOTE: BaseHTTPMiddleware may wrap JSON responses as StreamingResponse; if we consume
+        # body_iterator, we MUST rebuild a new JSONResponse or the client will receive an empty body.
+        if response.media_type == "application/json":
             try:
-                # Try to get the body (works for JSONResponse and most responses)
-                body = None
-                if hasattr(response, "body") and response.body is not None:
-                    body = response.body
-                elif hasattr(response, "render"):
-                    # For JSONResponse, render() returns the body
-                    body = response.render(response.body)
-                elif hasattr(response, "body_iterator"):
-                    # For streaming responses
-                    body = b"".join([chunk async for chunk in response.body_iterator])
+                consumed = False
+                body = getattr(response, "body", None)
+                if body is None and hasattr(response, "body_iterator"):
+                    consumed = True
+                    body = b""
+                    async for chunk in response.body_iterator:
+                        body += chunk
                 if not body:
+                    if consumed:
+                        headers = dict(response.headers)
+                        headers.pop("content-length", None)
+                        new_resp = JSONResponse(content=None, status_code=response.status_code, headers=headers)
+                        if getattr(response, "background", None):
+                            new_resp.background = response.background
+                        return new_resp
                     return response
-                data = json.loads(body)
+                body_str = body.decode("utf-8") if isinstance(body, (bytes, bytearray)) else body
+                data = json.loads(body_str)
+                injected = False
                 if isinstance(data, dict) and "request_id" not in data:
                     data["request_id"] = request_id
-                    # Rebuild the response with the new body and preserve headers
-                    new_resp = JSONResponse(content=data, status_code=response.status_code, headers=dict(response.headers))
-                    # Preserve background task if present
+                    injected = True
+                if consumed or injected:
+                    headers = dict(response.headers)
+                    headers.pop("content-length", None)
+                    new_resp = JSONResponse(content=data, status_code=response.status_code, headers=headers)
                     if getattr(response, "background", None):
                         new_resp.background = response.background
                     return new_resp
             except Exception:
-                pass  # If anything fails, return original response
+                pass
         return response

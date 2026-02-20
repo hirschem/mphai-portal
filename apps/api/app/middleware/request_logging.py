@@ -15,6 +15,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         import datetime
         start = time.time()
         req_id = getattr(request.state, "request_id", None)
+        if not req_id or not str(req_id).strip():
+            header_id = request.headers.get("x-request-id", "").strip()
+            if header_id:
+                req_id = header_id
+            else:
+                import uuid
+                req_id = str(uuid.uuid4())
+            request.state.request_id = req_id
+            if hasattr(request, 'scope') and isinstance(request.scope, dict):
+                request.scope.setdefault('state', {})['request_id'] = req_id
         method = request.method
         path = request.url.path
         logger.info(json.dumps({
@@ -24,7 +34,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             "event": "request_start",
             "method": method,
             "path": path,
-        }))
+        }), extra={"request_id": req_id})
         response: Response
         try:
             response = await call_next(request)
@@ -40,6 +50,5 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "path": path,
                 "status_code": status_code,
                 "duration_ms": duration_ms,
-            }))
-        return response
+            }), extra={"request_id": req_id})
         return response
