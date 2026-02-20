@@ -1,7 +1,6 @@
-from app.middleware.error_handlers import error_response
-
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
+from app.middleware.error_handlers import error_response
 from app.auth import require_auth
 from app.services.formatting_service import FormattingService
 from app.services.export_service import ExportService
@@ -10,12 +9,34 @@ from app.storage.file_manager import FileManager
 from app.api.logging_config import logger
 from app.security.rate_limit import RateLimiter
 
-
-from fastapi import Depends
-from app.auth import require_auth
 router = APIRouter(
     dependencies=[Depends(require_auth)]
 )
+
+@router.get("/download/{session_id}")
+async def download_proposal(session_id: str, request: Request):
+    request_id = getattr(request.state, "request_id", None) or request.headers.get("x-request-id")
+
+    # Try expected PDF locations (proposal first, then invoice)
+    pdf_path = file_manager.sessions_dir / session_id / "proposal.pdf"
+    if not pdf_path.exists():
+        alt = file_manager.sessions_dir / session_id / "invoice.pdf"
+        pdf_path = alt if alt.exists() else pdf_path
+
+    if not pdf_path.exists():
+        return error_response(
+            error_code="NOT_FOUND",
+            message="Document not found.",
+            request_id=request_id,
+            status_code=404,
+        )
+
+    return FileResponse(
+        path=str(pdf_path),
+        media_type="application/pdf",
+        filename=f"MPH_Document_{session_id[:8]}.pdf",
+    )
+
 _formatting_service = None
 def get_formatting_service():
     global _formatting_service
@@ -28,21 +49,12 @@ file_manager = FileManager()
 rate_limiter = RateLimiter()
 
 
-from fastapi import Depends
-from app.auth import require_auth
+
 @router.post("/generate", response_model=ProposalResponse, dependencies=[Depends(require_auth)])
 async def generate_proposal(payload: ProposalRequest, request: Request, auth_level: str = Depends(require_auth)):
     """Convert transcribed text to professional proposal or invoice"""
-    # Guard: ensure OPENAI_API_KEY is set, else return deterministic error
     import os
     request_id = getattr(request.state, "request_id", None) or request.headers.get("x-request-id")
-    if not os.environ.get("OPENAI_API_KEY"):
-        return error_response(
-            error_code="OPENAI_NOT_CONFIGURED",
-            message="Proposal generation is not configured on this environment.",
-            request_id=request_id,
-            status_code=503,
-        )
 
     from fastapi import HTTPException
     try:
@@ -74,12 +86,29 @@ async def generate_proposal(payload: ProposalRequest, request: Request, auth_lev
             )
         # Rewrite as professional construction proposal/invoice
         document_type = getattr(payload, "document_type", "proposal")
-        professional_text = await get_formatting_service().rewrite_professional(payload.raw_text)
-        logger.info(f"[rewrite_professional] session_id={payload.session_id} done")
 
-        # Generate structured document (proposal/invoice)
-        proposal_data = await get_formatting_service().structure_proposal(professional_text, document_type=document_type)
-        logger.info(f"[structure_proposal] session_id={payload.session_id} done")
+        # Stub mode when OPENAI_API_KEY is missing (local/dev)
+        if not os.environ.get("OPENAI_API_KEY"):
+            professional_text = (
+                f"{document_type.upper()} (STUB)\n\n"
+                f"Session: {payload.session_id}\n\n"
+                f"{payload.raw_text}".strip()
+            )
+            proposal_data = {
+                "document_type": document_type,
+                "session_id": payload.session_id,
+                "sections": [{"title": "Scope", "items": [payload.raw_text]}],
+            }
+            logger.info(f"[stub_generate] session_id={payload.session_id} done")
+        else:
+            professional_text = await get_formatting_service().rewrite_professional(payload.raw_text)
+            logger.info(f"[rewrite_professional] session_id={payload.session_id} done")
+
+            # Generate structured document (proposal/invoice)
+            proposal_data = await get_formatting_service().structure_proposal(
+                professional_text, document_type=document_type
+            )
+            logger.info(f"[structure_proposal] session_id={payload.session_id} done")
 
         # Save to session with correct naming
         await file_manager.save_proposal(payload.session_id, proposal_data, document_type=document_type)
@@ -116,67 +145,52 @@ async def generate_proposal(payload: ProposalRequest, request: Request, auth_lev
     )
 
 
+
 @router.post("/export/{session_id}", dependencies=[Depends(require_auth)])
-async def export_proposal(session_id: str, format: str = "pdf", auth_level: str = Depends(require_auth)):
+async def export_proposal(session_id: str, format: str = "pdf", request: Request = None, auth_level: str = Depends(require_auth)):
     """Export proposal to PDF or Word document"""
-    
-    # Load proposal data
-    proposal_data = await file_manager.load_proposal(session_id)
-    
     request_id = None
     try:
-        from fastapi import Request as _Request
-        import inspect
-        frame = inspect.currentframe()
-        while frame:
-            if "request" in frame.f_locals and isinstance(frame.f_locals["request"], _Request):
-                request_id = getattr(frame.f_locals["request"].state, "request_id", None)
-                break
-            frame = frame.f_back
+        request_id = getattr(request.state, "request_id", None) if request else None
     except Exception:
-        pass
-    if not proposal_data:
-        return error_response("not_found", "Proposal not found", request_id, 404)
-    
-    # Generate document
-    file_path = await export_service.export_document(session_id, proposal_data, format)
-    
-    return {
-        "session_id": session_id,
-        "format": format,
-        "file_path": str(file_path)
-    }
+        request_id = None
 
-
-@router.get("/download/{session_id}", dependencies=[Depends(require_auth)])
-async def download_proposal(session_id: str, auth_level: str = Depends(require_auth)):
-    """Download the PDF proposal"""
-    
-    # Check if PDF exists
-    pdf_path = file_manager.sessions_dir / session_id / "proposal.pdf"
-    
-    request_id = None
     try:
-        from fastapi import Request as _Request
-        import inspect
-        frame = inspect.currentframe()
-        while frame:
-            if "request" in frame.f_locals and isinstance(frame.f_locals["request"], _Request):
-                request_id = getattr(frame.f_locals["request"].state, "request_id", None)
-                break
-            frame = frame.f_back
-    except Exception:
-        pass
-    if not pdf_path.exists():
-        # Try to generate it
         proposal_data = await file_manager.load_proposal(session_id)
         if not proposal_data:
-            return error_response("not_found", "Proposal not found", request_id, 404)
-        await export_service.export_document(session_id, proposal_data, "pdf")
-    
-    # Serve the file
-    return FileResponse(
-        path=str(pdf_path),
-        media_type="application/pdf",
-        filename=f"MPH_Proposal_{session_id[:8]}.pdf"
-    )
+            return error_response(
+                error_code="NOT_FOUND",
+                message="Proposal not found.",
+                request_id=request_id,
+                status_code=404,
+            )
+
+        professional_text = ""
+        try:
+            professional_text = await file_manager.load_professional_text(session_id)
+        except Exception:
+            pass
+
+        output_path = await export_service.export_document(
+            session_id,
+            proposal_data,
+            professional_text,
+            format,
+            document_type=getattr(proposal_data, "document_type", "proposal"),
+        )
+
+        return {
+            "session_id": session_id,
+            "format": format,
+            "file_path": str(output_path),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[export_proposal] session_id={session_id} error: {e}")
+        return error_response(
+            error_code="EXPORT_FAILED",
+            message="Export failed.",
+            request_id=request_id,
+            status_code=500,
+        )
