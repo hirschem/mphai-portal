@@ -1,3 +1,4 @@
+from app.services.openai_guard import call_openai_with_retry
 
 
 from openai import AsyncOpenAI
@@ -23,20 +24,27 @@ PROMPT_PREFIX = (
     "Output must be valid JSON (RFC 8259). One object only.\n"
 )
 
-def generate_doc(user_prompt, llm_client):
+async def generate_doc(user_prompt, llm_client):
     base_prompt = PROMPT_PREFIX + user_prompt
 
-    def call_model(prompt: str) -> str:
-        return llm_client.generate(
-            prompt=prompt,
-            temperature=0.0,
-            top_p=1.0,
-            presence_penalty=0.0,
-            frequency_penalty=0.0,
-            # ...existing model, max_tokens, etc.
-        )
+    async def call_model(prompt: str) -> str:
+        async def _do_call():
+            return await llm_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.0,
+                top_p=1.0,
+                presence_penalty=0.0,
+                frequency_penalty=0.0,
+                max_tokens=2000
+            )
+        response = await call_openai_with_retry(_do_call, max_attempts=3, per_attempt_timeout_s=20.0)
+        return response.choices[0].message.content
 
-    raw1 = call_model(base_prompt)
+    import asyncio
+    raw1 = await call_model(base_prompt)
     try:
         doc = validate_ai_doc_v1(raw1)
         return doc
@@ -49,7 +57,7 @@ def generate_doc(user_prompt, llm_client):
             + "\n\nFix ONLY what is needed to satisfy AiDocV1. "
               "Return exactly one JSON object, no extra keys, no markdown."
         )
-        raw2 = call_model(retry_prompt)
+        raw2 = await call_model(retry_prompt)
         try:
             doc2 = validate_ai_doc_v1(raw2)
             return doc2
@@ -66,8 +74,7 @@ class FormattingService:
 
     @staticmethod
     async def generate_doc(user_prompt, llm_client):
-        # KEEP your existing implementation here
-        return generate_doc(user_prompt, llm_client)
+        return await generate_doc(user_prompt, llm_client)
 
     async def rewrite_professional(self, user_prompt: str) -> str:
         return await self.generate_doc(user_prompt, self.client)
