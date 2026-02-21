@@ -14,7 +14,7 @@ function Get-HeaderValue($headers, $name) {
 $ErrorActionPreference = "Stop"
 
 $Base = "https://mphai-portal-production.up.railway.app"
-$Base = $Base.Trim()
+$Base = $Base.Trim().TrimEnd('/')
 
 $HealthUrl = "$Base/health"
 $LoginUrl  = "$Base/api/auth/login"
@@ -36,12 +36,14 @@ try {
 
 
 if (-not $env:DEMO_PASSWORD -or [string]::IsNullOrWhiteSpace($env:DEMO_PASSWORD)) {
-  Write-Error "DEMO_PASSWORD environment variable is not set. Exiting."
-  exit 1
+  throw "SMOKE_FAIL:missing_demo_password"
 }
 
 function Invoke-Capture($method, $url, $headers, $bodyJson) {
   try {
+    if ($null -ne $bodyJson -and $bodyJson -isnot [string]) {
+      $bodyJson = $bodyJson | ConvertTo-Json -Compress
+    }
     $resp = Invoke-WebRequest -UseBasicParsing -Method $method -Uri $url -Headers $headers -ContentType "application/json" -Body $bodyJson
     return [pscustomobject]@{
       Status           = [int]$resp.StatusCode
@@ -83,23 +85,51 @@ Write-Host "LOGIN_RAILWAY_REQUEST_ID: $($login.RailwayRequestId)"
 Write-Host "LOGIN_DATE: $($login.Date)"
 Write-Host "LOGIN_BODY: $($login.Body)"
 
-if ($login.Status -ne 200) { throw "Login failed; stop." }
+try {
+    $token = ($login.Body | ConvertFrom-Json).access_token
+} catch { throw "SMOKE_FAIL:token_parse" }
+if (-not $token) { throw "SMOKE_FAIL:token_missing" }
 
-$loginJson = $login.Body | ConvertFrom-Json
-$token = $loginJson.access_token
+if ($login.Status -ne 200) { throw "SMOKE_FAIL:login_status" }
+
 
 # GENERATE
+Write-Host "`n=== GENERATE CHECK ==="
+Write-Host "`n=== GENERATE CHECK ==="
 
-$genBody = @{
-  session_id = "prod-debug-1"
-  raw_text = "Test proposal: paint walls, 2 coats, total 1200."
-  document_type = "proposal"
-} | ConvertTo-Json -Compress
+$session_id = "prod-smoke-$([Guid]::NewGuid().ToString('N').Substring(0,8))"
+$genBody = @{ session_id = $session_id; raw_text = "Smoke test: verify AiDoc fallback + per-session PDF generation." } | ConvertTo-Json -Compress
+
+try {
+  $gen = Invoke-Capture "POST" "$Base/api/proposals/generate" @{ Authorization = "Bearer $token" } $genBody
+  if ($gen.Status -ne 200) { throw "SMOKE_FAIL:generate_status_$($gen.Status) $($gen.Body)" }
+  $generateJson = $gen.Body | ConvertFrom-Json
+  if ($generateJson.session_id -and $generateJson.session_id -ne $session_id) { throw "SMOKE_FAIL:session_id_mismatch" }
+} catch { throw "SMOKE_FAIL:generate_exception" }
+
+$tmpDir = Join-Path $RepoRoot "tmp"
+if (-not (Test-Path $tmpDir)) { New-Item -ItemType Directory -Path $tmpDir | Out-Null }
 
 
-$gen = Invoke-Capture "POST" "$Base/api/proposals/generate" @{ Authorization = "Bearer $token" } $genBody
-Write-Host "GENERATE_STATUS: $($gen.Status)"
-Write-Host "GENERATE_X_REQUEST_ID: $($gen.RequestId)"
-Write-Host "GENERATE_RAILWAY_REQUEST_ID: $($gen.RailwayRequestId)"
-Write-Host "GENERATE_DATE: $($gen.Date)"
-Write-Host "GENERATE_BODY: $($gen.Body)"
+$outFile = Join-Path $tmpDir "$session_id.pdf"
+Write-Host "`n=== DOWNLOAD CHECK ==="
+Write-Host "OUTFILE: $outFile"
+Write-Host "OUTFILE: $outFile"
+try {
+  $downloadResponse = Invoke-WebRequest `
+    -Method GET `
+    -MaximumRedirection 0 `
+    -Uri "$Base/api/proposals/download/$session_id" `
+    -Headers @{ Authorization = "Bearer $token" } `
+    -OutFile $outFile
+} catch { throw "SMOKE_FAIL:download_exception" }
+
+$downloadSize = 0
+if (Test-Path $outFile) {
+  $downloadSize = (Get-Item $outFile).Length
+}
+Write-Host "DOWNLOAD_SIZE_BYTES: $downloadSize"
+if ($downloadSize -le 0) { throw "SMOKE_FAIL:download_size" }
+Write-Host "SMOKE_OK"
+Write-Host "DOWNLOAD_SIZE_BYTES: $downloadSize"
+Write-Host "SMOKE_OK"
