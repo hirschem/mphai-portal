@@ -397,8 +397,7 @@ class ExportService:
             print("TEMPLATE GENERATOR MODULE:", generate_invoice_templates.__file__)
         # Dynamically generate the finalized template PDF (Page 1)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_template:
-            generate_invoice_templates.generate_pg1()
-            # Copy the freshly generated template to the temp file
+            # Only copy the template file; do not regenerate at runtime
             with open(generate_invoice_templates.PAGE1_PATH, "rb") as fsrc:
                 tmp_template.write(fsrc.read())
             tmp_template.flush()

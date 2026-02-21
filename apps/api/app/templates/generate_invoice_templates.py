@@ -97,6 +97,10 @@ def draw_logo(c, x, y, target_width):
     return target_height
 
 def generate_pg1():
+    import os
+    if os.environ.get("GENERATE_TEMPLATES", "0") != "1":
+        print("template_generation_skipped")
+        return
     c = canvas.Canvas(PAGE1_PATH, pagesize=letter)
 
     left_x = MARGIN_L
