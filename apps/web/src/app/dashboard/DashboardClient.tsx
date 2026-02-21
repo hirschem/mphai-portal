@@ -12,7 +12,7 @@ export default function DashboardClient() {
 
   async function pingApi() {
     type PingResponse = { status?: string };
-    const res = await apiFetchWithMeta<PingResponse>("/", { method: "GET" });
+    const res = await apiFetchWithMeta<PingResponse>("/health", { method: "GET" });
     setRequestId(res.requestId || "");
     if (!res.ok) {
       const errMsg = typeof res.error === "object" && res.error !== null && "message" in res.error
@@ -30,13 +30,20 @@ export default function DashboardClient() {
 
   return (
     <AuthGuard>
-      <div>
-        <h1>Dashboard</h1>
-        <div>Level: {level}</div>
-        <div>API status: {apiStatus}</div>
-        <div>x-request-id: {requestId}</div>
-        <button onClick={pingApi}>Ping API</button>
-        <LogoutButton />
+      <div className="max-w-xl mx-auto mt-12 bg-white rounded-lg shadow p-8 space-y-6">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Dashboard</h1>
+        <div className="text-gray-700 text-lg"><span className="font-semibold">Level:</span> {level}</div>
+        <div className="text-gray-700"><span className="font-semibold">API status:</span> {apiStatus}</div>
+        <div className="text-gray-700"><span className="font-semibold">x-request-id:</span> {requestId}</div>
+        <button
+          onClick={pingApi}
+          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors font-medium"
+        >
+          Ping API
+        </button>
+        <div className="mt-6">
+          <LogoutButton />
+        </div>
       </div>
     </AuthGuard>
   );

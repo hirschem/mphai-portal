@@ -18,7 +18,7 @@ export default function LoginPage() {
     try {
       await login(password);
       const params = new URLSearchParams(window.location.search);
-      const next = params.get("next") || "/dashboard";
+      const next = params.get("next") || "/";
       router.replace(next);
     } catch (err: unknown) {
       const maybeError = err as { status?: number; message?: string };
