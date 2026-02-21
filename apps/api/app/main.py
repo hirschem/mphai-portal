@@ -183,6 +183,10 @@ def create_app(settings_override=None, auth_public_paths=None, auth_public_prefi
         allow_origins=[
             "https://mphai.app",
             "https://www.mphai.app",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3001",
         ],
         allow_origin_regex=r"^https://([a-z0-9-]+\.)*vercel\.app$",
         allow_credentials=False,
