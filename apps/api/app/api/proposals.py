@@ -4,7 +4,10 @@ from app.middleware.error_handlers import error_response
 from app.auth import require_auth
 from app.services.formatting_service import FormattingService
 from app.services.export_service import ExportService
-from app.models.schemas import ProposalRequest, ProposalResponse
+from app.models.schemas import ProposalRequest, ProposalResponse, ProposalData
+
+from app.services.openai_guard import OpenAIFailure
+from pydantic import ValidationError
 from app.storage.file_manager import FileManager
 from app.api.logging_config import logger
 from app.security.rate_limit import RateLimiter
@@ -87,42 +90,61 @@ async def generate_proposal(payload: ProposalRequest, request: Request, auth_lev
         # Rewrite as professional construction proposal/invoice
         document_type = getattr(payload, "document_type", "proposal")
 
-        # Stub mode when OPENAI_API_KEY is missing (local/dev)
-        if not os.environ.get("OPENAI_API_KEY"):
-            professional_text = (
-                f"{document_type.upper()} (STUB)\n\n"
-                f"Session: {payload.session_id}\n\n"
-                f"{payload.raw_text}".strip()
-            )
-            proposal_data = {
-                "document_type": document_type,
-                "session_id": payload.session_id,
-                "sections": [{"title": "Scope", "items": [payload.raw_text]}],
-            }
-            logger.info(f"[stub_generate] session_id={payload.session_id} done")
-        else:
-            professional_text = await get_formatting_service().rewrite_professional(payload.raw_text)
-            logger.info(f"[rewrite_professional] session_id={payload.session_id} done")
+        try:
+            # Stub mode when OPENAI_API_KEY is missing (local/dev)
+            if not os.environ.get("OPENAI_API_KEY"):
+                professional_text = (
+                    f"{document_type.upper()} (STUB)\n\n"
+                    f"Session: {payload.session_id}\n\n"
+                    f"{payload.raw_text}".strip()
+                )
+                proposal_data = {
+                    "document_type": document_type,
+                    "session_id": payload.session_id,
+                    "sections": [{"title": "Scope", "items": [payload.raw_text]}],
+                }
+                logger.info(f"[stub_generate] session_id={payload.session_id} done")
+            else:
+                professional_text = await get_formatting_service().rewrite_professional(payload.raw_text)
+                logger.info(f"[rewrite_professional] session_id={payload.session_id} done")
 
-            # Generate structured document (proposal/invoice)
-            proposal_data = await get_formatting_service().structure_proposal(
-                professional_text, document_type=document_type
+                # Generate structured document (proposal/invoice)
+                proposal_data = await get_formatting_service().structure_proposal(
+                    professional_text, document_type=document_type
+                )
+                logger.info(f"[structure_proposal] session_id={payload.session_id} done")
+        except OpenAIFailure as e:
+            return error_response(
+                error_code=e.code,
+                message="Proposal generation is temporarily unavailable. Please retry.",
+                request_id=request_id,
+                status_code=503,
             )
-            logger.info(f"[structure_proposal] session_id={payload.session_id} done")
+
+        # Validate ProposalData before returning ProposalResponse
+        try:
+            proposal_data_obj = ProposalData.model_validate(proposal_data)
+        except ValidationError:
+            return error_response(
+                error_code="PROPOSAL_SCHEMA_INVALID",
+                message="Generated proposal data was invalid. Please retry.",
+                request_id=request_id,
+                status_code=500,
+            )
 
         # Save to session with correct naming
-        await file_manager.save_proposal(payload.session_id, proposal_data, document_type=document_type)
+        await file_manager.save_proposal(payload.session_id, proposal_data_obj, document_type=document_type)
         logger.info(f"[save_proposal] session_id={payload.session_id} done")
 
         # Generate PDF with correct naming and header
-        await export_service.export_document(payload.session_id, proposal_data, professional_text, "pdf", document_type=document_type)
+        await export_service.export_document(payload.session_id, proposal_data_obj, professional_text, "pdf", document_type=document_type)
         logger.info(f"[export_document] session_id={payload.session_id} done")
 
         return ProposalResponse(
             session_id=payload.session_id,
             professional_text=professional_text,
-            proposal_data=proposal_data,
-            document_data=proposal_data,
+            proposal_data=proposal_data_obj,
+            document_data=proposal_data_obj,
             document_type=document_type,
             status="generated"
         )
