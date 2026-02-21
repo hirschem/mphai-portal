@@ -98,8 +98,10 @@ def draw_logo(c, x, y, target_width):
 
 def generate_pg1():
     import os
+    import logging
+    logger = logging.getLogger("app.templates")
     if os.environ.get("GENERATE_TEMPLATES", "0") != "1":
-        print("template_generation_skipped")
+        logger.info("template_generation_skipped")
         return
     c = canvas.Canvas(PAGE1_PATH, pagesize=letter)
 
@@ -193,7 +195,8 @@ def generate_pg1():
         c.restoreState()
 
     c.save()
-    print(f"✓ Saved: {os.path.abspath(PAGE1_PATH)}")
+    abs_path = os.path.abspath(PAGE1_PATH)
+    logger.info("template_saved", extra={"path": abs_path})
 
 def generate_pg2():
     right_x = PAGE_WIDTH - 1 * inch

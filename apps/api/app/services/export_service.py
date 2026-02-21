@@ -419,6 +419,17 @@ class ExportService:
         if output is not None:
             with open(output_path, "wb") as output_file:
                 output.write(output_file)
+                # INFO log for PDF written
+                import logging, os
+                logger = logging.getLogger("mphai")
+                logger.info(
+                    "proposal_pdf_written",
+                    extra={
+                        "session_id": session_id,
+                        "pdf_path": str(output_path),
+                        "size_bytes": os.path.getsize(output_path)
+                    }
+                )
             if debug:
                 session_dir = output_path.parent
                 overlay_path = session_dir / "invoice_overlay.pdf"
@@ -434,6 +445,17 @@ class ExportService:
         else:
             with open(output_path, "wb") as output_file:
                 output_file.write(packet.getvalue())
+                # INFO log for PDF written
+                import logging, os
+                logger = logging.getLogger("mphai")
+                logger.info(
+                    "proposal_pdf_written",
+                    extra={
+                        "session_id": session_id,
+                        "pdf_path": str(output_path),
+                        "size_bytes": os.path.getsize(output_path)
+                    }
+                )
             if debug:
                 session_dir = output_path.parent
                 overlay_path = session_dir / "invoice_overlay.pdf"

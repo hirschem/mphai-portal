@@ -35,6 +35,21 @@ async def download_proposal(session_id: str, request: Request):
             status_code=404,
         )
 
+        size_bytes = None
+        try:
+            size_bytes = pdf_path.stat().st_size
+        except Exception:
+            pass
+
+        logger.info(
+            "proposal_pdf_served",
+            extra={
+                "request_id": request_id,
+                "session_id": session_id,
+                "pdf_path": str(pdf_path),
+                "size_bytes": size_bytes,
+            },
+        )
     return FileResponse(
         path=str(pdf_path),
         media_type="application/pdf",
@@ -157,7 +172,25 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
         logger.info(f"[save_proposal] session_id={payload.session_id} done")
 
         # Generate PDF with correct naming and header
-        await export_service.export_document(payload.session_id, proposal_data_obj, professional_text, "pdf", document_type=document_type)
+        format = "pdf"
+        output_path = await export_service.export_document(payload.session_id, proposal_data_obj, professional_text, format, document_type=document_type)
+        size_bytes = None
+        try:
+            size_bytes = output_path.stat().st_size
+        except Exception:
+            pass
+
+        logger.info(
+            "proposal_pdf_written",
+            extra={
+                "request_id": request_id,
+                "session_id": payload.session_id,
+                "document_type": document_type,
+                "format": format,
+                "pdf_path": str(output_path),
+                "size_bytes": size_bytes,
+            },
+        )
         logger.info(f"[export_document] session_id={payload.session_id} done")
 
         return ProposalResponse(
