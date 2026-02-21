@@ -1,5 +1,4 @@
-# Prevent accidental template modification
-app/templates/*.pdf
+# PDF templates in app/templates are version-controlled production assets.
 # Local debug artifacts
 gen.json
 login.json
