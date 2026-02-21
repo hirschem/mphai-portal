@@ -1,3 +1,36 @@
+import os
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+def test_generate_aidoc_fallback(monkeypatch):
+    from app.api import proposals as proposals_api
+    from app.errors import StandardizedAIError
+    def fake_get_formatting_service():
+        class FakeFormattingService:
+            async def rewrite_professional(self, *args, **kwargs):
+                return "ok"
+            async def structure_proposal(self, *args, **kwargs):
+                raise StandardizedAIError("AI_SCHEMA_VALIDATION_FAILED", "AI_SCHEMA_VALIDATION_FAILED")
+        return FakeFormattingService()
+    monkeypatch.setattr(proposals_api, "get_formatting_service", fake_get_formatting_service, raising=True)
+    client = TestClient(app)
+    payload = {"session_id": "fail3", "raw_text": "x", "document_type": "proposal"}
+    headers = {"Authorization": "Bearer testpass", "X-Request-ID": "test-rid-789"}
+    # Fallback mode (AIDOC_STRICT=0)
+    monkeypatch.setenv("AIDOC_STRICT", "0")
+    resp = client.post("/api/proposals/generate", json=payload, headers=headers)
+    assert resp.status_code == 200
+    assert resp.headers.get("x-ai-doc") == "fallback"
+    data = resp.json()
+    assert data["status"] == "generated"
+    # ProposalResponse does not include request_id in body for success
+    # Strict mode (AIDOC_STRICT=1)
+    monkeypatch.setenv("AIDOC_STRICT", "1")
+    resp2 = client.post("/api/proposals/generate", json=payload, headers=headers)
+    assert resp2.status_code == 503
+    data2 = resp2.json()
+    assert data2["error"]["code"] == "AI_SCHEMA_VALIDATION_FAILED"
+    assert data2["request_id"] == "test-rid-789"
 from app.services.openai_guard import OpenAIFailure
 def test_generate_openai_failure(monkeypatch):
     from app.api import proposals as proposals_api

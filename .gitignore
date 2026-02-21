@@ -1,3 +1,5 @@
+# Prevent accidental template modification
+app/templates/*.pdf
 # Local debug artifacts
 gen.json
 login.json
