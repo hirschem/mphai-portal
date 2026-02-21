@@ -74,7 +74,7 @@ rate_limiter = RateLimiter()
 async def generate_proposal(payload: ProposalRequest, request: Request, response: Response):
     """Convert transcribed text to professional proposal or invoice"""
     import os
-    aidoc_strict = os.environ.get("AIDOC_STRICT", "0")
+    aidoc_strict = os.environ.get("AIDOC_STRICT", "0") == "1"
     request_id = getattr(request.state, "request_id", None) or request.headers.get("x-request-id")
 
     try:
@@ -116,7 +116,7 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                 logger.info(f"[structure_proposal] session_id={payload.session_id} done")
             except StandardizedAIError as e:
                 # Fallback for AiDocV1/schema validation failure
-                if aidoc_strict == "1":
+                if aidoc_strict:
                     return error_response(
                         error_code=getattr(e, "code", "AI_SCHEMA_VALIDATION_FAILED"),
                         message=str(e),
@@ -124,6 +124,13 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                         status_code=503,
                     )
                 # Non-strict: fallback ProposalData, set header
+                logger.info(
+                    "aidoc_fallback",
+                    extra={
+                        "request_id": request_id,
+                        "session_id": payload.session_id,
+                    },
+                )
                 professional_text = professional_text if 'professional_text' in locals() else (
                     f"{document_type.upper()} (FALLBACK)\n\n"
                     f"Session: {payload.session_id}\n\n"
@@ -134,7 +141,6 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                     "session_id": payload.session_id,
                     "sections": [{"title": "Scope", "items": [payload.raw_text]}],
                 }
-                logger.info(f"[fallback_proposal] session_id={payload.session_id} done")
                 proposal_data_obj = ProposalData.model_validate(proposal_data)
                 await file_manager.save_proposal(payload.session_id, proposal_data_obj, document_type=document_type)
                 await export_service.export_document(payload.session_id, proposal_data_obj, professional_text, "pdf", document_type=document_type)
