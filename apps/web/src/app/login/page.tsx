@@ -25,12 +25,12 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      type LoginResponse = { level?: string };
+      type LoginResponse = { access_token: string; level?: string };
       const data = await apiFetch<LoginResponse>('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ password }),
       });
-      writeAuthToken(password);
+      writeAuthToken(data.access_token);
       const level = data.level === 'admin' || data.level === 'demo' ? data.level : 'admin';
       writeAuthLevel(level);
       const params = new URLSearchParams(window.location.search);
