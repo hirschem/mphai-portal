@@ -22,7 +22,7 @@ const AUTH_TOKEN_KEY = "auth_token";
 
 // Keep temporary backwards-compat only so old saved values still work.
 // Once everything is stable, you can remove the legacy list entirely.
-const LEGACY_KEYS = ["mphai_admin_password", "token", "admin_password"];
+const LEGACY_KEYS = ["access_token", "mphai_admin_password", "token", "admin_password"];
 
 export function readAuthToken(): string | null {
   if (typeof window === "undefined") return null;

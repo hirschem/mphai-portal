@@ -1,4 +1,5 @@
 import { ApiError } from "./apiTypes";
+import { readAuthToken } from "./auth";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
@@ -29,7 +30,12 @@ export async function apiAuthProbe(token?: string) {
 function getAccessToken(): string | undefined {
   if (typeof window === "undefined") return undefined;
   try {
-    return localStorage.getItem("access_token") || undefined;
+    return (
+      readAuthToken() ||
+      localStorage.getItem("auth_token") || // canonical
+      localStorage.getItem("access_token") || // legacy fallback
+      undefined
+    ) || undefined;
   } catch {
     return undefined;
   }
