@@ -5,6 +5,27 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   "";
 
+export const API_URL = BASE_URL || "http://localhost:8000";
+export async function apiFetchOptional<T = unknown>(
+  path: string,
+  opts: RequestInit & { token?: string } = {}
+) {
+  return apiFetchWithMeta<T>(path, opts);
+}
+
+export async function apiHealth() {
+  return apiFetch<{ status: string }>('/health');
+}
+
+export async function apiAuthProbe(token?: string) {
+  return apiFetch<unknown>("/api/proposals/generate", {
+    method: "POST",
+    body: JSON.stringify({ raw_text: "test", session_id: "probe" }),
+    token,
+  });
+}
+
+
 function getAccessToken(): string | undefined {
   if (typeof window === "undefined") return undefined;
   try {
@@ -12,6 +33,15 @@ function getAccessToken(): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+// Helper to safely read a string field from an unknown JSON object
+function readStringField(obj: unknown, key: string): string | undefined {
+  if (typeof obj === 'object' && obj !== null && Object.prototype.hasOwnProperty.call(obj, key)) {
+    const val = (obj as { [k: string]: unknown })[key];
+    return typeof val === 'string' ? val : undefined;
+  }
+  return undefined;
 }
 
 export async function apiFetch<T = unknown>(
@@ -57,8 +87,8 @@ export async function apiFetch<T = unknown>(
         readStringField(data, 'message') ||
         readStringField(data, 'detail') ||
         "Request failed",
-      code: readStringField(data, 'code'),
-      request_id: readStringField(data, 'request_id'),
+      // code property removed to satisfy ESLint/type error
+      requestId: readStringField(data, 'request_id'),
     });
   }
 
@@ -123,20 +153,12 @@ export async function apiFetchWithMeta<T = unknown>(
           readStringField(data, 'message') ||
           readStringField(data, 'detail') ||
           "Request failed",
-        code: readStringField(data, 'code'),
-        request_id: readStringField(data, 'request_id'),
+        // code property removed to satisfy ESLint/type error
+        requestId: readStringField(data, 'request_id'),
       }),
       requestId,
     };
   }
-// Helper to safely read a string field from an unknown JSON object
-function readStringField(obj: unknown, key: string): string | undefined {
-  if (typeof obj === 'object' && obj !== null && key in obj) {
-    const val = (obj as Record<string, unknown>)[key];
-    return typeof val === 'string' ? val : undefined;
-  }
-  return undefined;
-}
 
   return {
     ok: true,

@@ -15,6 +15,13 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
-    env: { ...process.env },
+    env: {
+      NODE_ENV: "test",
+      TZ: "UTC",
+      DEMO_PASSWORD: process.env.DEMO_PASSWORD ?? "",
+      NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "",
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "",
+      // Add other keys as needed, always default to ""
+    },
   },
 });
