@@ -49,15 +49,16 @@ export async function apiFetch<T = unknown>(
     data = null;
   }
 
+
   if (!res.ok) {
     throw new ApiError({
       status: res.status,
       message:
-        (data as any)?.message ||
-        (data as any)?.detail ||
+        readStringField(data, 'message') ||
+        readStringField(data, 'detail') ||
         "Request failed",
-      code: (data as any)?.code,
-      request_id: (data as any)?.request_id,
+      code: readStringField(data, 'code'),
+      request_id: readStringField(data, 'request_id'),
     });
   }
 
@@ -119,15 +120,23 @@ export async function apiFetchWithMeta<T = unknown>(
       error: new ApiError({
         status: res.status,
         message:
-          (data as any)?.message ||
-          (data as any)?.detail ||
+          readStringField(data, 'message') ||
+          readStringField(data, 'detail') ||
           "Request failed",
-        code: (data as any)?.code,
-        request_id: (data as any)?.request_id,
+        code: readStringField(data, 'code'),
+        request_id: readStringField(data, 'request_id'),
       }),
       requestId,
     };
   }
+// Helper to safely read a string field from an unknown JSON object
+function readStringField(obj: unknown, key: string): string | undefined {
+  if (typeof obj === 'object' && obj !== null && key in obj) {
+    const val = (obj as Record<string, unknown>)[key];
+    return typeof val === 'string' ? val : undefined;
+  }
+  return undefined;
+}
 
   return {
     ok: true,
