@@ -10,29 +10,27 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // On mount, if already authed, redirect
-  useEffect(() => {
-    const token = readAuthToken();
-    if (token) {
-      const params = new URLSearchParams(window.location.search);
-      const next = params.get('next') || '/dashboard';
-      router.replace(next);
-    }
-  }, [router]);
+  // On mount, if already authed, redirect (no auto-login)
+  // AUTO-LOGIN REMOVED: App now loads in logged-out state. User must log in manually.
+  // Only redirect if already authed, do not call login.
+  // useEffect(() => {
+  //   const token = readAuthToken();
+  //   if (token) {
+  //     const params = new URLSearchParams(window.location.search);
+  //     const next = params.get('next') || '/dashboard';
+  //     router.replace(next);
+  //   }
+  // }, [router]);
 
+  // Use AuthContext for login
+  import { useAuth } from '../../contexts/AuthContext';
+  const { login } = useAuth();
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      type LoginResponse = { access_token: string; level?: string };
-      const data = await apiFetch<LoginResponse>('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ password }),
-      });
-      writeAuthToken(data.access_token);
-      const level = data.level === 'admin' || data.level === 'demo' ? data.level : 'admin';
-      writeAuthLevel(level);
+      await login(password);
       const params = new URLSearchParams(window.location.search);
       const next = params.get('next') || '/dashboard';
       router.replace(next);

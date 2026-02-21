@@ -73,10 +73,20 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
       console.log('UPLOAD DEBUG — instanceof FormData:', fd instanceof FormData);
       console.log('UPLOAD DEBUG — file constructor:', files?.[0]?.constructor?.name);
       type TranscribeResponse = { session_id: string; raw_text: string };
-      const transcribeResp = await apiFetchWithMeta<TranscribeResponse>('/api/transcribe/upload', {
-        method: 'POST',
-        body: fd,
+      const token =
+        localStorage.getItem('auth_token') || undefined;
+      console.log("UPLOAD TOKEN DEBUG", {
+        auth_token_len: localStorage.getItem("auth_token")?.length ?? 0,
+        using_len: token?.length ?? 0,
       });
+      const transcribeResp = await apiFetchWithMeta<TranscribeResponse>(
+        '/api/transcribe/upload',
+        {
+          method: 'POST',
+          body: fd,
+          token,
+        }
+      );
       if (!transcribeResp.ok) throw transcribeResp.error || new Error('Failed to transcribe');
       if (!transcribeResp.data) throw new Error('Missing transcribe response');
       const tr = transcribeResp.data;

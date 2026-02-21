@@ -26,15 +26,8 @@ const LEGACY_KEYS = ["access_token", "mphai_admin_password", "token", "admin_pas
 
 export function readAuthToken(): string | null {
   if (typeof window === "undefined") return null;
-
   const direct = window.localStorage.getItem(AUTH_TOKEN_KEY);
   if (direct && direct.trim()) return direct.trim();
-
-  for (const k of LEGACY_KEYS) {
-    const v = window.localStorage.getItem(k);
-    if (v && v.trim()) return v.trim();
-  }
-
   return null;
 }
 

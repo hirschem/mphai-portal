@@ -27,20 +27,6 @@ export async function apiAuthProbe(token?: string) {
 }
 
 
-function getAccessToken(): string | undefined {
-  if (typeof window === "undefined") return undefined;
-  try {
-    return (
-      readAuthToken() ||
-      localStorage.getItem("auth_token") || // canonical
-      localStorage.getItem("access_token") || // legacy fallback
-      undefined
-    ) || undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 // Helper to safely read a string field from an unknown JSON object
 function readStringField(obj: unknown, key: string): string | undefined {
   if (typeof obj === 'object' && obj !== null && Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -64,7 +50,7 @@ export async function apiFetch<T = unknown>(
     headers.set("Content-Type", "application/json");
   }
 
-  const finalToken = token ?? getAccessToken();
+    const finalToken = token ?? readAuthToken();
   if (finalToken) {
     headers.set("Authorization", `Bearer ${finalToken}`);
   }
@@ -121,13 +107,24 @@ export async function apiFetchWithMeta<T = unknown>(
     headers.set("Content-Type", "application/json");
   }
 
-  const finalToken = token ?? getAccessToken();
+  const finalToken = token ?? readAuthToken();
   if (finalToken) {
     headers.set("Authorization", `Bearer ${finalToken}`);
   }
 
   let res: Response;
   let requestId: string | undefined = undefined;
+
+  // Detailed auth debug log
+  console.log("AUTH DEBUG", {
+    url,
+    tokenParam: token ? token.slice(0, 12) + "..." : null,
+    accessFromGetter: readAuthToken()?.slice(0, 12) + "..." ?? null,
+    finalToken: finalToken ? finalToken.slice(0, 12) + "..." : null,
+    authHeaderBeforeFetch: headers.get("Authorization"),
+    hasAuthHeader: headers.has("Authorization"),
+    headerKeys: Array.from(headers.keys()),
+  });
 
   try {
     res = await fetch(url, { ...init, headers });
@@ -190,7 +187,7 @@ export async function apiFetchBlobWithMeta(
 
   headers.set("Accept", "application/pdf");
 
-  const finalToken = token ?? getAccessToken();
+    const finalToken = token ?? readAuthToken();
   if (finalToken) {
     headers.set("Authorization", `Bearer ${finalToken}`);
   }

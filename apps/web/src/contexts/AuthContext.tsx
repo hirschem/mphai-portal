@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { readAuthToken, writeAuthToken, clearAuthToken, readAuthLevel, writeAuthLevel } from '../lib/auth';
+import { readAuthToken, writeAuthToken, clearAuthToken, readAuthLevel, writeAuthLevel, clearAuthLevel } from '../lib/auth';
 import { apiFetch } from '@/lib/apiClient';
 
 export type AuthLevel = 'demo' | 'admin' | null
@@ -26,21 +26,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // SSR-safe: only read in browser
     const token = readAuthToken();
     const level = readAuthLevel();
+    // If something "auto-logged in" by setting level only, kill it.
+    if (!token && level) {
+      clearAuthLevel();
+    }
     setPassword(token);
-    setAuthLevel(level);
+    setAuthLevel(token ? level : null);
   }, []);
 
   const login = async (pwd: string) => {
-    type LoginResponse = { level?: string };
+    // Debug: log when login() is called
+    console.debug('[AuthContext] login() called', { pwd });
+    type LoginResponse = { access_token?: string; level?: string };
     const data = await apiFetch<LoginResponse>("/api/auth/login", {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pwd }),
     });
+    const token = typeof data.access_token === 'string' && data.access_token.length > 0 ? data.access_token : null;
     const level = data.level === 'admin' || data.level === 'demo' ? data.level : 'admin';
+    if (!token) throw new Error('No access token returned');
     setAuthLevel(level);
-    setPassword(pwd);
-    writeAuthToken(pwd);
+    setPassword(token);
+    writeAuthToken(token);
+    console.log("WRITE DEBUG", localStorage.getItem("auth_token"));
     writeAuthLevel(level);
   };
 
@@ -64,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         login,
         logout,
-        isAuthenticated: authLevel !== null,
+        isAuthenticated: !!password,
         isAdmin: authLevel === 'admin',
         getAuthHeader,
       }}
