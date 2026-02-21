@@ -95,7 +95,6 @@ if ($login.Status -ne 200) { throw "SMOKE_FAIL:login_status" }
 
 # GENERATE
 Write-Host "`n=== GENERATE CHECK ==="
-Write-Host "`n=== GENERATE CHECK ==="
 
 $session_id = "prod-smoke-$([Guid]::NewGuid().ToString('N').Substring(0,8))"
 $genBody = @{ session_id = $session_id; raw_text = "Smoke test: verify AiDoc fallback + per-session PDF generation." } | ConvertTo-Json -Compress
@@ -112,8 +111,6 @@ if (-not (Test-Path $tmpDir)) { New-Item -ItemType Directory -Path $tmpDir | Out
 
 
 $outFile = Join-Path $tmpDir "$session_id.pdf"
-Write-Host "`n=== DOWNLOAD CHECK ==="
-Write-Host "OUTFILE: $outFile"
 Write-Host "OUTFILE: $outFile"
 try {
   $downloadResponse = Invoke-WebRequest `
@@ -130,6 +127,4 @@ if (Test-Path $outFile) {
 }
 Write-Host "DOWNLOAD_SIZE_BYTES: $downloadSize"
 if ($downloadSize -le 0) { throw "SMOKE_FAIL:download_size" }
-Write-Host "SMOKE_OK"
-Write-Host "DOWNLOAD_SIZE_BYTES: $downloadSize"
 Write-Host "SMOKE_OK"
