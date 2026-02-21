@@ -150,12 +150,15 @@ async def generate_proposal(payload: ProposalRequest, request: Request, auth_lev
         )
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception(f"[generate_proposal] session_id={getattr(request, 'session_id', None)} error: {e}")
+    except Exception:
+        logger.exception(
+            "proposal_generate_unhandled_error",
+            extra={"request_id": getattr(request.state, "request_id", None)},
+        )
         return error_response(
             error_code="INTERNAL_ERROR",
             message="Proposal generation failed.",
-            request_id=request_id,
+            request_id=getattr(request.state, "request_id", None),
             status_code=500,
         )
     # Final guard: never return None
