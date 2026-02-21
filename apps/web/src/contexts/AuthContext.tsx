@@ -57,6 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLevel(null);
     setPassword(null);
     clearAuthToken();
+    clearAuthLevel();
+    window.location.assign('/login');
   };
 
   const getAuthHeader = () => {

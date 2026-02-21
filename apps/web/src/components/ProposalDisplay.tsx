@@ -1,5 +1,6 @@
-
 'use client'
+
+import { useAuth } from '../contexts/AuthContext';
 import { apiFetchBlobWithMeta } from "@/lib/apiClient";
 
 interface ProposalDisplayProps {
@@ -9,10 +10,13 @@ interface ProposalDisplayProps {
 }
 
 export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProps) {
+  const { logout } = useAuth();
+
   const d = data as Record<string, unknown>;
-  const proposal = (typeof d.proposal_data === 'object' && d.proposal_data !== null)
-    ? (d.proposal_data as Record<string, unknown>)
-    : {};
+  const proposal =
+    typeof d.proposal_data === 'object' && d.proposal_data !== null
+      ? (d.proposal_data as Record<string, unknown>)
+      : {};
   const clientName = (proposal.client_name as string) ?? "Client";
 
   const handleDownload = async () => {
@@ -37,16 +41,10 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const downloadUrl = `${apiUrl}/api/proposals/download/${sessionId}`;
     const subject = encodeURIComponent(`Proposal for ${clientName}`);
-    const body = encodeURIComponent(`Please find the proposal attached.\n\nYou can download it here: ${downloadUrl}`);
+    const body = encodeURIComponent(
+      `Please find the proposal attached.\n\nYou can download it here: ${downloadUrl}`
+    );
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_level");
-    localStorage.removeItem("mph_auth");
-    localStorage.removeItem("mph_auth_level");
-    window.location.href = "/login";
   };
 
   // Early return if no sessionId
@@ -55,9 +53,25 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Professional Proposal</h2>
         <div className="flex gap-2 mb-6">
-          <button disabled className="bg-green-300 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 opacity-50 cursor-not-allowed">Download PDF</button>
-          <button disabled className="bg-blue-300 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 opacity-50 cursor-not-allowed">Email</button>
-          <button type="button" onClick={handleLogout} className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2">Logout</button>
+          <button
+            disabled
+            className="bg-green-300 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 opacity-50 cursor-not-allowed"
+          >
+            Download PDF
+          </button>
+          <button
+            disabled
+            className="bg-blue-300 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 opacity-50 cursor-not-allowed"
+          >
+            Email
+          </button>
+          <button
+            type="button"
+            onClick={logout}
+            className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2"
+          >
+            Logout
+          </button>
         </div>
         <div className="text-gray-700">No session loaded. Please upload a proposal.</div>
       </div>
@@ -75,7 +89,12 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
             disabled={!sessionId}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
             </svg>
             Download PDF
           </button>
@@ -85,19 +104,30 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
             disabled={!sessionId}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
             </svg>
             Email
           </button>
-          <button type="button" onClick={handleLogout} className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2">Logout</button>
+          <button
+            type="button"
+            onClick={logout}
+            className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2"
+          >
+            Logout
+          </button>
         </div>
       </div>
 
       <div className="space-y-6">
         <section>
           <h3 className="text-lg font-semibold text-gray-800 mb-2">Client Information</h3>
-          <p className="text-gray-700"><strong>Name:</strong> {proposal.client_name as string || 'N/A'}</p>
-          <p className="text-gray-700"><strong>Address:</strong> {proposal.project_address as string || 'N/A'}</p>
+          <p className="text-gray-700"><strong>Name:</strong> {(proposal.client_name as string) || 'N/A'}</p>
+          <p className="text-gray-700"><strong>Address:</strong> {(proposal.project_address as string) || 'N/A'}</p>
         </section>
 
         <section>
