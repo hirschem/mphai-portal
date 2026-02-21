@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image';
-import { apiFetchWithMeta } from '@/lib/apiClient'
+import { apiFetchWithMeta, apiFetchBlobWithMeta } from '@/lib/apiClient'
 
 interface UploadFormProps {
   onSuccess: (sessionId: string, proposalData: unknown) => void
@@ -15,6 +15,16 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
   const [previews, setPreviews] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+  const pdfBlobUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (pdfBlobUrlRef.current) {
+        URL.revokeObjectURL(pdfBlobUrlRef.current);
+        pdfBlobUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files
@@ -85,7 +95,16 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
       if (!proposalResp.data) throw new Error('Missing proposal response');
       const proposalResult = proposalResp.data;
 
-      onSuccess(proposalResult.session_id, proposalResult);
+      // Download PDF blob
+      const pdfResp = await apiFetchBlobWithMeta(`/api/proposals/download/${proposalResult.session_id}`, { method: 'GET' });
+      if (!pdfResp.ok || !pdfResp.data) throw pdfResp.error || new Error('Failed to download PDF');
+      // Revoke previous blob URL
+      if (pdfBlobUrlRef.current) {
+        URL.revokeObjectURL(pdfBlobUrlRef.current);
+      }
+      const blobUrl = URL.createObjectURL(pdfResp.data);
+      pdfBlobUrlRef.current = blobUrl;
+      onSuccess(proposalResult.session_id, { ...proposalResult, pdf_blob_url: blobUrl });
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string') {
         setError((err as { message: string }).message || 'Failed to process image');
