@@ -12,6 +12,8 @@ class ProposalRequest(BaseModel):
     session_id: str
     raw_text: str
     document_type: str = "proposal"  # "proposal" or "invoice", default is "proposal"
+    client_name: Optional[str] = None
+    address: Optional[str] = None
 
 
 class LineItem(BaseModel):

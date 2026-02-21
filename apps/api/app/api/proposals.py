@@ -13,6 +13,10 @@ from app.storage.file_manager import FileManager
 from app.api.logging_config import logger
 from app.security.rate_limit import RateLimiter
 
+export_service = ExportService()
+file_manager = FileManager()
+rate_limiter = RateLimiter()
+
 router = APIRouter(
     dependencies=[Depends(require_auth)]
 )
@@ -35,21 +39,22 @@ async def download_proposal(session_id: str, request: Request):
             status_code=404,
         )
 
-        size_bytes = None
-        try:
-            size_bytes = pdf_path.stat().st_size
-        except Exception:
-            pass
+    size_bytes = None
+    try:
+        size_bytes = pdf_path.stat().st_size
+    except Exception:
+        pass
 
-        logger.info(
-            "proposal_pdf_served",
-            extra={
-                "request_id": request_id,
-                "session_id": session_id,
-                "pdf_path": str(pdf_path),
-                "size_bytes": size_bytes,
-            },
-        )
+    logger.info(
+        "proposal_pdf_served",
+        extra={
+            "request_id": request_id,
+            "session_id": session_id,
+            "pdf_path": str(pdf_path),
+            "size_bytes": size_bytes,
+        },
+    )
+
     return FileResponse(
         path=str(pdf_path),
         media_type="application/pdf",
@@ -91,7 +96,10 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                 status_code=429,
             )
 
+
         document_type = getattr(payload, "document_type", "proposal")
+        client_name = (getattr(payload, "client_name", None) or "").strip() or None
+        address = (getattr(payload, "address", None) or "").strip() or None
 
         # Stub mode when OPENAI_API_KEY is missing (local/dev)
         if not os.environ.get("OPENAI_API_KEY"):
@@ -105,6 +113,10 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                 "session_id": payload.session_id,
                 "sections": [{"title": "Scope", "items": [payload.raw_text]}],
             }
+            if client_name:
+                proposal_data["client_name"] = client_name
+            if address:
+                proposal_data["project_address"] = address
             logger.info(f"[stub_generate] session_id={payload.session_id} done")
         else:
             try:
@@ -113,6 +125,10 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                 proposal_data = await get_formatting_service().structure_proposal(
                     professional_text, document_type=document_type
                 )
+                if client_name:
+                    proposal_data["client_name"] = client_name
+                if address:
+                    proposal_data["project_address"] = address
                 logger.info(f"[structure_proposal] session_id={payload.session_id} done")
             except StandardizedAIError as e:
                 # Fallback for AiDocV1/schema validation failure
@@ -141,6 +157,10 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                     "session_id": payload.session_id,
                     "sections": [{"title": "Scope", "items": [payload.raw_text]}],
                 }
+                if client_name:
+                    proposal_data["client_name"] = client_name
+                if address:
+                    proposal_data["project_address"] = address
                 proposal_data_obj = ProposalData.model_validate(proposal_data)
                 await file_manager.save_proposal(payload.session_id, proposal_data_obj, document_type=document_type)
                 await export_service.export_document(payload.session_id, proposal_data_obj, professional_text, "pdf", document_type=document_type)
