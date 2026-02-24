@@ -28,8 +28,7 @@ from app.auth import require_auth
 @router.post("/upload", response_model=TranscriptionResponse, dependencies=[Depends(require_auth)])
 async def transcribe_image(
     files: list[UploadFile] | None = File(None),
-    file: UploadFile | None = File(None),
-    auth_level: str = Depends(require_auth)
+    file: UploadFile | None = File(None)
 ):
     """Upload handwritten image(s) and get transcription (multi-image supported)"""
     request_id = None

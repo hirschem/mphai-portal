@@ -17,7 +17,6 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
     typeof d.proposal_data === 'object' && d.proposal_data !== null
       ? (d.proposal_data as Record<string, unknown>)
       : {};
-  const clientName = (proposal.client_name as string) ?? "Client";
 
   const handleDownload = async () => {
     if (!sessionId) return;
