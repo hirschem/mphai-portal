@@ -70,12 +70,17 @@ class FileManager:
             return ProposalData(**data)
     
     async def save_chapter_pages(self, chapter_id: str, files: list) -> list[Path]:
-        """Save multiple uploaded pages for a chapter"""
+        """Save multiple uploaded pages for a chapter, each with a unique name"""
+        from uuid import uuid4
+        import re
         chapter_dir = self.books_dir / chapter_id
         chapter_dir.mkdir(parents=True, exist_ok=True)
         saved_paths = []
         for i, file in enumerate(files, 1):
-            file_path = chapter_dir / f"page_{i:03d}_{file.filename}"
+            # Sanitize filename
+            safe_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename)
+            unique_name = f"{i:03d}_{uuid4().hex}_{safe_name}"
+            file_path = chapter_dir / unique_name
             content = await file.read()
             await atomic_write_bytes(file_path, content)
             saved_paths.append(file_path)
