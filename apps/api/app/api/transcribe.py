@@ -28,7 +28,7 @@ from app.auth import require_auth
 @router.post("/upload", response_model=TranscriptionResponse, dependencies=[Depends(require_auth)])
 async def transcribe_image(
     files: list[UploadFile] | None = File(None),
-    file: UploadFile | None = File(None)
+    file: list[UploadFile] | None = File(None)
 ):
     """Upload handwritten image(s) and get transcription (multi-image supported)"""
     request_id = None
@@ -43,10 +43,13 @@ async def transcribe_image(
             frame = frame.f_back
     except Exception:
         pass
-    # Normalize input: accept both 'files' and 'file' fields
-    if (not files or len(files) == 0) and file is not None:
-        files = [file]
-    if not files or len(files) == 0:
+    # Normalize input: accept both 'files' and 'file' fields (both can be lists)
+    incoming = []
+    if files:
+        incoming.extend(files)
+    if file:
+        incoming.extend(file)
+    if not incoming:
         return error_response(
             "VALIDATION_ERROR",
             "body.files: Field required",
@@ -55,18 +58,27 @@ async def transcribe_image(
         )
     settings = __import__("app.models.config", fromlist=["get_settings"]).get_settings()
     max_pages = getattr(settings, "MAX_UPLOAD_PAGES", 25)
-    if len(files) > max_pages:
+    if len(incoming) > max_pages:
         return error_response(
             "VALIDATION_ERROR",
-            f"Too many pages: {len(files)} exceeds MAX_UPLOAD_PAGES ({max_pages})",
+            f"Too many pages: {len(incoming)} exceeds MAX_UPLOAD_PAGES ({max_pages})",
             request_id,
             422,
         )
-    if not all(f.content_type and f.content_type.startswith("image/") for f in files):
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
+    def is_image_file(f):
+        if f.content_type and f.content_type.startswith("image/"):
+            return True
+        if f.content_type == "application/octet-stream":
+            import os
+            _, ext = os.path.splitext(f.filename or "")
+            return ext.lower() in allowed_exts
+        return False
+    if not all(is_image_file(f) for f in incoming):
         return error_response("invalid_file", "File(s) must be image(s)", request_id, 400)
     session_id = str(uuid.uuid4())
     image_paths = []
-    for file in files:
+    for file in incoming:
         image_path = await file_manager.save_upload(session_id, file)
         image_paths.append(image_path)
     # Deterministic aggregation
