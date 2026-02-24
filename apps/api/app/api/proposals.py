@@ -119,68 +119,88 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                 proposal_data["project_address"] = address
             logger.info(f"[stub_generate] session_id={payload.session_id} done")
         else:
-            try:
-                professional_text = await get_formatting_service().rewrite_professional(payload.raw_text)
-                logger.info(f"[rewrite_professional] session_id={payload.session_id} done")
-                proposal_data = await get_formatting_service().structure_proposal(
-                    professional_text, document_type=document_type
-                )
-                if client_name:
-                    proposal_data["client_name"] = client_name
-                if address:
-                    proposal_data["project_address"] = address
-                logger.info(f"[structure_proposal] session_id={payload.session_id} done")
-            except StandardizedAIError as e:
-                # Fallback for AiDocV1/schema validation failure
-                if aidoc_strict:
-                    return error_response(
-                        error_code=getattr(e, "code", "AI_SCHEMA_VALIDATION_FAILED"),
-                        message=str(e),
-                        request_id=request_id,
-                        status_code=503,
-                    )
-                # Non-strict: fallback ProposalData, set header
-                logger.info(
-                    "aidoc_fallback",
-                    extra={
-                        "request_id": request_id,
-                        "session_id": payload.session_id,
-                    },
-                )
-                professional_text = professional_text if 'professional_text' in locals() else (
-                    f"{document_type.upper()} (FALLBACK)\n\n"
-                    f"Session: {payload.session_id}\n\n"
-                    f"{payload.raw_text}".strip()
-                )
+            if document_type == "proposal":
+                # Split raw_text into pages, clean refusal/apology text, and rewrite
+                refusal_phrases = ["I'm sorry", "I cannot", "I can't", "cannot provide"]
+                page_texts = [p.strip() for p in payload.raw_text.split("--- Page") if p.strip()]
+                cleaned_pages = []
+                for t in page_texts:
+                    if not any(phrase in t for phrase in refusal_phrases):
+                        cleaned_pages.append(t)
+                professional_text = await get_formatting_service().rewrite_structured_proposal(cleaned_pages)
                 proposal_data = {
                     "document_type": document_type,
                     "session_id": payload.session_id,
-                    "sections": [{"title": "Scope", "items": [payload.raw_text]}],
+                    "sections": [],
                 }
                 if client_name:
                     proposal_data["client_name"] = client_name
                 if address:
                     proposal_data["project_address"] = address
-                proposal_data_obj = ProposalData.model_validate(proposal_data)
-                await file_manager.save_proposal(payload.session_id, proposal_data_obj, document_type=document_type)
-                await export_service.export_document(payload.session_id, proposal_data_obj, professional_text, "pdf", document_type=document_type)
-                response.headers["X-AI-DOC"] = "fallback"
-                return ProposalResponse(
-                    session_id=payload.session_id,
-                    professional_text=professional_text,
-                    proposal_data=proposal_data_obj,
-                    document_data=proposal_data_obj,
-                    document_type=document_type,
-                    status="generated"
-                )
-            except OpenAIFailure as e:
-                # Map OpenAI upstream failures to HTTP 503 with deterministic error contract
-                return error_response(
-                    error_code=getattr(e, "code", "AI_UPSTREAM_UNAVAILABLE"),
-                    message="Proposal generation is temporarily unavailable. Please retry.",
-                    request_id=request_id,
-                    status_code=503,
-                )
+                logger.info(f"[rewrite_structured_proposal] session_id={payload.session_id} done")
+            else:
+                try:
+                    professional_text = await get_formatting_service().rewrite_professional(payload.raw_text)
+                    logger.info(f"[rewrite_professional] session_id={payload.session_id} done")
+                    proposal_data = await get_formatting_service().structure_proposal(
+                        professional_text, document_type=document_type
+                    )
+                    if client_name:
+                        proposal_data["client_name"] = client_name
+                    if address:
+                        proposal_data["project_address"] = address
+                    logger.info(f"[structure_proposal] session_id={payload.session_id} done")
+                except StandardizedAIError as e:
+                    # Fallback for AiDocV1/schema validation failure
+                    if aidoc_strict:
+                        return error_response(
+                            error_code=getattr(e, "code", "AI_SCHEMA_VALIDATION_FAILED"),
+                            message=str(e),
+                            request_id=request_id,
+                            status_code=503,
+                        )
+                    # Non-strict: fallback ProposalData, set header
+                    logger.info(
+                        "aidoc_fallback",
+                        extra={
+                            "request_id": request_id,
+                            "session_id": payload.session_id,
+                        },
+                    )
+                    professional_text = professional_text if 'professional_text' in locals() else (
+                        f"{document_type.upper()} (FALLBACK)\n\n"
+                        f"Session: {payload.session_id}\n\n"
+                        f"{payload.raw_text}".strip()
+                    )
+                    proposal_data = {
+                        "document_type": document_type,
+                        "session_id": payload.session_id,
+                        "sections": [{"title": "Scope", "items": [payload.raw_text]}],
+                    }
+                    if client_name:
+                        proposal_data["client_name"] = client_name
+                    if address:
+                        proposal_data["project_address"] = address
+                    proposal_data_obj = ProposalData.model_validate(proposal_data)
+                    await file_manager.save_proposal(payload.session_id, proposal_data_obj, document_type=document_type)
+                    await export_service.export_document(payload.session_id, proposal_data_obj, professional_text, "pdf", document_type=document_type)
+                    response.headers["X-AI-DOC"] = "fallback"
+                    return ProposalResponse(
+                        session_id=payload.session_id,
+                        professional_text=professional_text,
+                        proposal_data=proposal_data_obj,
+                        document_data=proposal_data_obj,
+                        document_type=document_type,
+                        status="generated"
+                    )
+                except OpenAIFailure as e:
+                    # Map OpenAI upstream failures to HTTP 503 with deterministic error contract
+                    return error_response(
+                        error_code=getattr(e, "code", "AI_UPSTREAM_UNAVAILABLE"),
+                        message="Proposal generation is temporarily unavailable. Please retry.",
+                        request_id=request_id,
+                        status_code=503,
+                    )
 
         # Validate ProposalData before returning ProposalResponse
         try:
