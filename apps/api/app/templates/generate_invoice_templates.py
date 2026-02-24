@@ -226,16 +226,42 @@ def generate_pg2():
         c.line(amount_col_x, 0, amount_col_x, PAGE_HEIGHT)
         c.restoreState()
 
-    # Logo left, top (slightly larger)
-    logo_h = draw_logo(c, 1 * inch, PAGE2_HEADER_TOP, PAGE2_LOGO_WIDTH)
+    # Logo left, top (moved up 6, left 6, larger by 0.2)
+    # Logo left, top (moved up 6, left 6, larger by 0.2)
+    logo_x = 1 * inch - 6 - 40  # left 40
+    logo_y = PAGE2_HEADER_TOP + 6 + 60 - 20 + 5  # up 5
+    logo_width = PAGE2_LOGO_WIDTH * 1.2
+    logo_h = draw_logo(c, logo_x, logo_y, logo_width)
+    logo_width = PAGE2_LOGO_WIDTH * 1.2
+    logo_h = draw_logo(c, logo_x, logo_y, logo_width)
     # Company name right-aligned, compact
     y = PAGE2_HEADER_TOP - 0.03 * inch  # 10.27 in
     c.setFont('Helvetica-Bold', 13)
     c.drawRightString(right_x, y, COMPANY_NAME)
-    # Divider line: BODY_TOP_Y + 0.10 in (9.75 in)
-    divider_y = PAGE2_BODY_TOP_Y + 0.10 * inch
+    # Replicate Description and Amount header location from page 1
+    left_x = MARGIN_L
+    right_x = MARGIN_R
+    extension = PAGE_WIDTH * 0.05
+    amount_divider_x = MARGIN_R - AMOUNT_DIVIDER_OFFSET
+    # Lower horizontal line by 10
+    divider_y = PAGE2_BODY_TOP_Y + 0.10 * inch - 10
+    header_baseline_y = divider_y + HEADER_BASELINE_OFFSET
+    # Header labels above the line
+    c.setFont("Helvetica-Bold", 12)
+    c.setFillColor(SOFT_BLACK)
+    c.drawString(left_x + 6, header_baseline_y, "Description")
+    c.drawString(amount_divider_x + 8, header_baseline_y, "Amount")
+    c.setFillColorRGB(0, 0, 0)
+    # Horizontal divider line
     c.setLineWidth(1)
-    c.line(1 * inch, divider_y, PAGE_WIDTH - 1 * inch, divider_y)
+    c.setStrokeColorRGB(0, 0, 0)
+    c.line(left_x - extension, divider_y, right_x + extension, divider_y)
+    # Vertical line from horizontal divider downwards
+    # Move vertical line to same x as page 1 (amount_divider_x)
+    vertical_x = amount_divider_x
+    vertical_y_start = divider_y
+    vertical_y_end = MARGIN_B  # match page 1 bottom
+    c.line(vertical_x, vertical_y_start, vertical_x, vertical_y_end)
     # BODY_TOP_Y constant visual (not rendered, just for dev reference)
     # c.setStrokeColorRGB(0,0,1); c.line(0, PAGE2_BODY_TOP_Y, PAGE_WIDTH, PAGE2_BODY_TOP_Y)
     c.save()
