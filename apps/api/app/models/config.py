@@ -5,6 +5,8 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    # Upload page limit
+    MAX_UPLOAD_PAGES: int = Field(default=25, validation_alias="MAX_UPLOAD_PAGES")
     # Request size limiting
     ENFORCE_REQUEST_SIZE_LIMIT: bool = Field(default=True, validation_alias="ENFORCE_REQUEST_SIZE_LIMIT")
     MAX_REQUEST_BYTES: int = Field(default=25_000_000, validation_alias="MAX_REQUEST_BYTES")

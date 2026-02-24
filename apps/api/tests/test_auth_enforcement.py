@@ -164,14 +164,14 @@ def _multipart_fields_for_path(app, tmpl: str, method: str):
         b"\x18\xdd\x8d\x18"
         b"\x00\x00\x00\x00IEND\xaeB`\x82"
     )
-    files = {}
+    files = []
     data = {}
     for k, v in file_fields:
         if v.get("type") == "array":
-            # array of files: use list of tuples
-            files = [(k, ("test.png", png_1x1, "image/png"))]
+            # array of files: add multiple tuples if needed (here just one for test)
+            files.append((k, ("test.png", png_1x1, "image/png")))
         else:
-            files[k] = ("test.png", png_1x1, "image/png")
+            files.append((k, ("test.png", png_1x1, "image/png")))
 
     for k in required:
         if any(k == ff[0] for ff in file_fields):
