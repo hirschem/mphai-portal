@@ -286,7 +286,8 @@ class ExportService:
             max_invoice_lines = 6
             invoice_lines_rendered = 0
             money_re = re.compile(r"(\$?\d{1,3}(?:,\d{3})*\.\d{2})")
-            skip_fallback_block = False
+            in_orphan_amount_block = False
+            amount_only_re = re.compile(r"^\$?\d{1,3}(?:,\d{3})*(?:\.\d{2})?$")
             for paragraph in paragraphs:
                 if not paragraph.strip():
                     continue
@@ -299,8 +300,8 @@ class ExportService:
                     raw = line
                     # Minimal cleanup
                     line = line.strip()
-                    # Drop junk/meta lines (case-insensitive)
                     lower = line.lower()
+                    # Drop junk/meta lines (case-insensitive)
                     if any(s in lower for s in ["here is the transcribed", "transcribed handwritten", "from the image", "session", "page", "```"]):
                         continue
                     # Remove markdown/artifacts
@@ -310,12 +311,18 @@ class ExportService:
                     line = line.strip("* ")
                     if not line:
                         continue
-                    # Minimal patch: skip all lines after 'PROPOSAL (FALLBACK)'
+                    # Suppress only the header line
                     if line.startswith("PROPOSAL (FALLBACK)"):
-                        skip_fallback_block = True
                         continue
-                    if skip_fallback_block:
+                    # Orphan Amount block suppression
+                    if line.lower() == "amount":
+                        in_orphan_amount_block = True
                         continue
+                    if in_orphan_amount_block:
+                        if amount_only_re.match(line):
+                            continue
+                        elif line:
+                            in_orphan_amount_block = False
                     # Money alignment
                     money_match = money_re.search(line)
                     if money_match:
