@@ -127,16 +127,62 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                 for t in page_texts:
                     if not any(phrase in t for phrase in refusal_phrases):
                         cleaned_pages.append(t)
-                professional_text = await get_formatting_service().rewrite_structured_proposal(cleaned_pages)
+                # Extract client_name and address if missing
+                extracted_client_name = client_name
+                extracted_address = address
+                if not client_name or not address:
+                    from app.services.formatting_service import get_openai_client
+                    openai_client = get_openai_client()
+                    extract_prompt = (
+                        "Extract client name and project address from the following construction notes. "
+                        "Return a JSON object with keys: client_name and project_address. "
+                        "If not present, set the value to null. Do not invent.\n\n"
+                        + "\n\n".join(cleaned_pages)
+                    )
+                    async def _extract_call():
+                        return await openai_client.chat.completions.create(
+                            model="gpt-4o",
+                            messages=[{"role": "user", "content": extract_prompt}],
+                            max_tokens=200,
+                            temperature=0.0
+                        )
+                    extract_response = await _extract_call()
+                    import json
+                    try:
+                        extract_obj = json.loads(extract_response.choices[0].message.content)
+                        if not client_name and extract_obj.get("client_name"):
+                            extracted_client_name = extract_obj["client_name"]
+                        if not address and extract_obj.get("project_address"):
+                            extracted_address = extract_obj["project_address"]
+                    except Exception:
+                        pass
+                raw_text = await get_formatting_service().rewrite_structured_proposal(cleaned_pages)
+                # Remove 'Cost:' lines from professional_text
+                lines = raw_text.splitlines()
+                line_items = []
+                filtered_lines = []
+                import re
+                for line in lines:
+                    m = re.match(r"^(.*)\s*Cost:\s*\$([\d,]+)\.?(\d{0,2})$", line.strip())
+                    if m:
+                        desc = m.group(1).strip()
+                        amt_str = m.group(2).replace(",", "")
+                        amt_dec = m.group(3) or "00"
+                        amount_cents = int(amt_str) * 100 + int(amt_dec.ljust(2, '0'))
+                        line_items.append({"description": desc, "amount_cents": amount_cents})
+                    else:
+                        filtered_lines.append(line)
+                professional_text = "\n".join(filtered_lines)
                 proposal_data = {
                     "document_type": document_type,
                     "session_id": payload.session_id,
                     "sections": [],
+                    "line_items": line_items,
                 }
-                if client_name:
-                    proposal_data["client_name"] = client_name
-                if address:
-                    proposal_data["project_address"] = address
+                if extracted_client_name:
+                    proposal_data["client_name"] = extracted_client_name
+                if extracted_address:
+                    proposal_data["project_address"] = extracted_address
                 logger.info(f"[rewrite_structured_proposal] session_id={payload.session_id} done")
             else:
                 try:
