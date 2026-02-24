@@ -285,7 +285,8 @@ class ExportService:
             paragraphs = professional_text.strip().split('\n\n')
             max_invoice_lines = 6
             invoice_lines_rendered = 0
-            money_re = re.compile(r"(\$?\d{1,3}(?:,\d{3})*\.\d{2})")
+            money_cents_re = re.compile(r"(\$?\d{1,3}(?:,\d{3})*\.\d{2})")
+            money_whole_re = re.compile(r"(\$?\d{1,3}(?:,\d{3})*)\b(?!\.)")
             in_orphan_amount_block = False
             amount_only_re = re.compile(r"^\$?\d{1,3}(?:,\d{3})*(?:\.\d{2})?$")
             for paragraph in paragraphs:
@@ -302,13 +303,19 @@ class ExportService:
                     line = line.strip()
                     lower = line.lower()
                     # Drop junk/meta lines (case-insensitive)
-                    if any(s in lower for s in ["here is the transcribed", "transcribed handwritten", "from the image", "session", "page", "```"]):
+                    if any(s in lower for s in ["here is the transcribed", "transcribed handwritten", "from the image", "```"]):
                         continue
-                    # Remove markdown/artifacts
-                    for marker in ["**", "`", "*", "\\"]:
-                        line = line.replace(marker, "")
+                    # Drop obvious page/session markers only (not the words in general)
+                    if lower.startswith("--- page") or lower.startswith("page ") or lower.startswith("session "):
+                        continue
+                    # Remove markdown/artifacts (be careful: don't nuke '*' globally)
+                    line = line.replace("**", "").replace("`", "")
+                    line = line.replace("\\", "")  # remove backslashes from escaped markdown
+                    # Treat leading '*' as a bullet only
+                    if line.startswith("* "):
+                        line = "• " + line[2:].strip()
                     line = ' '.join(line.split())  # collapse whitespace
-                    line = line.strip("* ")
+                    line = line.strip()
                     if not line:
                         continue
                     # Suppress only the header line
@@ -324,12 +331,23 @@ class ExportService:
                         elif line:
                             in_orphan_amount_block = False
                     # Money alignment
-                    money_match = money_re.search(line)
+                    money_match = money_cents_re.search(line)
+                    money_is_whole = False
+                    if not money_match:
+                        # only treat whole-dollar as money if the line has letters too (label + number)
+                        has_letters = any(ch.isalpha() for ch in line)
+                        if has_letters:
+                            money_match = money_whole_re.search(line)
+                            money_is_whole = bool(money_match)
+
                     if money_match:
                         amount_text = money_match.group(1)
                         label_text = line[:money_match.start()].rstrip(" :\t")
+
                         if not amount_text.startswith("$"):
                             amount_text = "$" + amount_text
+                        if money_is_whole and "." not in amount_text:
+                            amount_text = amount_text + ".00"
                         prof_font_name = "Helvetica"
                         prof_font_size = 12
                         desc_max_width = divider_x - left_margin - self.DESC_PAD_R
