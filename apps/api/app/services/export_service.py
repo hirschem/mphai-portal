@@ -286,6 +286,7 @@ class ExportService:
             max_invoice_lines = 6
             invoice_lines_rendered = 0
             money_re = re.compile(r"(\$?\d{1,3}(?:,\d{3})*\.\d{2})")
+            skip_fallback_block = False
             for paragraph in paragraphs:
                 if not paragraph.strip():
                     continue
@@ -308,6 +309,12 @@ class ExportService:
                     line = ' '.join(line.split())  # collapse whitespace
                     line = line.strip("* ")
                     if not line:
+                        continue
+                    # Minimal patch: skip all lines after 'PROPOSAL (FALLBACK)'
+                    if line.startswith("PROPOSAL (FALLBACK)"):
+                        skip_fallback_block = True
+                        continue
+                    if skip_fallback_block:
                         continue
                     # Money alignment
                     money_match = money_re.search(line)
