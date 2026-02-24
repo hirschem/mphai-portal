@@ -281,7 +281,10 @@ class ExportService:
         y_position = height - 3.5 * inch if not (getattr(data, "line_items", None) and len(data.line_items) > 0) else line_y - 0.3 * inch
         can.setFont("Helvetica", 12)
         if professional_text:
+            import re
             paragraphs = professional_text.strip().split('\n\n')
+            max_invoice_lines = 6
+            invoice_lines_rendered = 0
             for paragraph in paragraphs:
                 if not paragraph.strip():
                     continue
@@ -292,35 +295,52 @@ class ExportService:
                 lines = paragraph.strip().split('\n')
                 for line in lines:
                     text = line.strip()
+                    # Filter layer: skip unwanted lines
                     if not text:
                         continue
+                    money_pattern = re.compile(r"(\$\s*\d{1,3}(,\d{3})*(\.\d{2})?$|^\d{1,3}(,\d{3})*(\.\d{2})?$|\$\d+(\.\d{2})?|\d+\.\d{2}$)")
+                    line_item_pattern = re.compile(r"(\s{2,}.+\d+\.\d{2}$|@\d+['"]|@\d+)")
+                    if document_type == "invoice":
+                        if invoice_lines_rendered >= max_invoice_lines:
+                            break
+                        if money_pattern.search(text):
+                            continue
+                        if line_item_pattern.search(text):
+                            continue
+                        if (
+                            text.startswith("PROPOSAL (FALLBACK)") or
+                            text.startswith("Session:") or
+                            "--- Page" in text or
+                            text.startswith("Page ") or
+                            text.startswith("```") or
+                            text in {"---", "#", "##", "###", "####", "#####", "######", "*", "**", "***", "```"}
+                        ):
+                            continue
+                        invoice_lines_rendered += 1
+                    else:
+                        if (
+                            text.startswith("PROPOSAL (FALLBACK)") or
+                            text.startswith("Session:") or
+                            "--- Page" in text or
+                            text.startswith("Page ") or
+                            text.startswith("```") or
+                            text in {"---", "#", "##", "###", "####", "#####", "######", "*", "**", "***", "```"} or
+                            (money_pattern.search(text) and len(text.split()) > 1)
+                        ):
+                            continue
                     if text.startswith('-') or text.startswith('•'):
                         text = '• ' + text.lstrip('-•').strip()
-                    elif len(lines) > 1 and not text.endswith(':'):
-                        text = '• ' + text
-                    if len(text) > 75:
-                        words = text.split()
-                        current_line = ""
-                        for word in words:
-                            if len(current_line + word) < 75:
-                                current_line += word + " "
-                            else:
-                                if y_position < bottom_margin + 30:
-                                    can.showPage()
-                                    y_position = height - 1.5 * inch
-                                    can.setFont("Helvetica", 12)
-                                can.drawString(left_margin, y_position, current_line.strip())
-                                y_position -= 15
-                                current_line = "  " + word + " "
-                        if current_line.strip():
-                            if y_position < bottom_margin + 30:
-                                can.showPage()
-                                y_position = height - 1.5 * inch
-                                can.setFont("Helvetica", 12)
-                            can.drawString(left_margin, y_position, current_line.strip())
-                            y_position -= 15
-                    else:
-                        can.drawString(left_margin, y_position, text)
+                    # Use width-based wrapping for professional_text
+                    prof_font_name = "Helvetica"
+                    prof_font_size = 12
+                    prof_max_width = width - 2 * left_margin
+                    wrapped_prof_lines = wrap_text_to_width(text, prof_font_name, prof_font_size, prof_max_width)
+                    for wrapped_line in wrapped_prof_lines:
+                        if y_position < bottom_margin + 30:
+                            can.showPage()
+                            y_position = height - 1.5 * inch
+                            can.setFont(prof_font_name, prof_font_size)
+                        can.drawString(left_margin, y_position, wrapped_line)
                         y_position -= 15
                 y_position -= 5
         # Timeline (proposal only)
