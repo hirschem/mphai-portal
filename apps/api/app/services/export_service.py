@@ -285,7 +285,7 @@ class ExportService:
             paragraphs = professional_text.strip().split('\n\n')
             max_invoice_lines = 6
             invoice_lines_rendered = 0
-            money_regex = re.compile(r"(\$?\d{1,3}(?:,\d{3})*\.\d{2})")
+            money_re = re.compile(r"(\$?\d{1,3}(?:,\d{3})*\.\d{2})")
             for paragraph in paragraphs:
                 if not paragraph.strip():
                     continue
@@ -295,51 +295,33 @@ class ExportService:
                     can.setFont("Helvetica", 12)
                 lines = paragraph.strip().split('\n')
                 for line in lines:
-                    text = line.strip()
-                    # Filter layer: skip unwanted lines
-                    if not text:
+                    raw = line
+                    # Minimal cleanup
+                    line = line.strip()
+                    # Drop junk/meta lines (case-insensitive)
+                    lower = line.lower()
+                    if any(s in lower for s in ["here is the transcribed", "transcribed handwritten", "from the image", "session", "page", "```"]):
                         continue
-                    line_item_pattern = re.compile(r"(\s{2,}.+\d+\.\d{2}$|@\d+['\"]|@\d+)")
-                    if document_type == "invoice":
-                        if invoice_lines_rendered >= max_invoice_lines:
-                            break
-                        if (
-                            text.startswith("PROPOSAL (FALLBACK)") or
-                            text.startswith("Session:") or
-                            "--- Page" in text or
-                            text.startswith("Page ") or
-                            text.startswith("```") or
-                            text in {"---", "#", "##", "###", "####", "#####", "######", "*", "**", "***", "```"}
-                        ):
-                            continue
-                        invoice_lines_rendered += 1
-                    else:
-                        if (
-                            text.startswith("PROPOSAL (FALLBACK)") or
-                            text.startswith("Session:") or
-                            "--- Page" in text or
-                            text.startswith("Page ") or
-                            text.startswith("```") or
-                            text in {"---", "#", "##", "###", "####", "#####", "######", "*", "**", "***", "```"}
-                        ):
-                            continue
-                    if text.startswith('-') or text.startswith('•'):
-                        text = '• ' + text.lstrip('-•').strip()
-                    # Money split logic
-                    money_match = money_regex.search(text)
+                    # Remove markdown/artifacts
+                    for marker in ["**", "`", "*", "\\"]:
+                        line = line.replace(marker, "")
+                    line = ' '.join(line.split())  # collapse whitespace
+                    line = line.strip("* ")
+                    if not line:
+                        continue
+                    # Money alignment
+                    money_match = money_re.search(line)
                     if money_match:
                         amount_text = money_match.group(1)
-                        left_text = text[:money_match.start()].rstrip()
-                        # Always prefix $ if missing
+                        label_text = line[:money_match.start()].rstrip(" :\t")
                         if not amount_text.startswith("$"):
                             amount_text = "$" + amount_text
                         prof_font_name = "Helvetica"
                         prof_font_size = 12
-                        # Wrap left_text to Description column width
                         desc_max_width = divider_x - left_margin - self.DESC_PAD_R
-                        wrapped_left_lines = wrap_text_to_width(left_text, prof_font_name, prof_font_size, desc_max_width)
+                        wrapped_label_lines = wrap_text_to_width(label_text, prof_font_name, prof_font_size, desc_max_width)
                         first_line = True
-                        for wrapped_line in wrapped_left_lines or [""]:
+                        for wrapped_line in wrapped_label_lines or [""]:
                             if y_position < bottom_margin + 30:
                                 can.showPage()
                                 y_position = height - 1.5 * inch
@@ -349,19 +331,21 @@ class ExportService:
                                 can.drawRightString(amount_right_x - self.AMT_PAD_R, y_position, amount_text)
                                 first_line = False
                             y_position -= 15
-                    else:
-                        # Use width-based wrapping for professional_text
-                        prof_font_name = "Helvetica"
-                        prof_font_size = 12
-                        prof_max_width = width - 2 * left_margin
-                        wrapped_prof_lines = wrap_text_to_width(text, prof_font_name, prof_font_size, prof_max_width)
-                        for wrapped_line in wrapped_prof_lines:
-                            if y_position < bottom_margin + 30:
-                                can.showPage()
-                                y_position = height - 1.5 * inch
-                                can.setFont(prof_font_name, prof_font_size)
-                            can.drawString(left_margin, y_position, wrapped_line)
-                            y_position -= 15
+                        continue
+                    # Bullets for real lists
+                    if line.startswith('-') or line.startswith('•'):
+                        line = '• ' + line.lstrip('-•').strip()
+                    prof_font_name = "Helvetica"
+                    prof_font_size = 12
+                    prof_max_width = width - 2 * left_margin
+                    wrapped_prof_lines = wrap_text_to_width(line, prof_font_name, prof_font_size, prof_max_width)
+                    for wrapped_line in wrapped_prof_lines:
+                        if y_position < bottom_margin + 30:
+                            can.showPage()
+                            y_position = height - 1.5 * inch
+                            can.setFont(prof_font_name, prof_font_size)
+                        can.drawString(left_margin, y_position, wrapped_line)
+                        y_position -= 15
                 y_position -= 5
         # Timeline (proposal only)
         if document_type == "proposal" and getattr(data, "timeline", None):
