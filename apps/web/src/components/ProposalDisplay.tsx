@@ -10,7 +10,7 @@ interface ProposalDisplayProps {
 }
 
 export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProps) {
-  const { logout } = useAuth();
+  const { } = useAuth();
 
   const d = data as Record<string, unknown>;
   const proposal =
@@ -36,16 +36,7 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
     window.URL.revokeObjectURL(url);
   };
 
-  const handleEmail = () => {
-    if (!sessionId) return;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    const downloadUrl = `${apiUrl}/api/proposals/download/${sessionId}`;
-    const subject = encodeURIComponent(`Proposal for ${clientName}`);
-    const body = encodeURIComponent(
-      `Please find the proposal attached.\n\nYou can download it here: ${downloadUrl}`
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  };
+  // ...existing code...
 
   // Early return if no sessionId
   if (!sessionId) {
