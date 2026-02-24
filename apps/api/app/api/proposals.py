@@ -156,22 +156,64 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                     except Exception:
                         pass
                 raw_text = await get_formatting_service().rewrite_structured_proposal(cleaned_pages)
-                # Remove 'Cost:' lines from professional_text
-                lines = raw_text.splitlines()
-                line_items = []
-                filtered_lines = []
                 import re
-                for line in lines:
-                    m = re.match(r"^(.*)\s*Cost:\s*\$([\d,]+)\.?(\d{0,2})$", line.strip())
-                    if m:
-                        desc = m.group(1).strip()
-                        amt_str = m.group(2).replace(",", "")
-                        amt_dec = m.group(3) or "00"
-                        amount_cents = int(amt_str) * 100 + int(amt_dec.ljust(2, '0'))
-                        line_items.append({"description": desc, "amount_cents": amount_cents})
+                # Find anchors
+                scope_anchor = None
+                closing_anchor = None
+                lines = raw_text.splitlines()
+                for idx, line in enumerate(lines):
+                    if scope_anchor is None and line.strip() == "Scope of Work":
+                        scope_anchor = idx
+                    if closing_anchor is None and line.strip() == "Sincerely,":
+                        closing_anchor = idx
+                # Fallbacks if anchors missing
+                if scope_anchor is not None:
+                    intro_lines = lines[:scope_anchor]
+                else:
+                    intro_lines = []
+                if scope_anchor is not None and closing_anchor is not None:
+                    scope_lines = lines[scope_anchor:closing_anchor]   # include "Scope of Work"
+                elif scope_anchor is not None:
+                    scope_lines = lines[scope_anchor:]                 # include "Scope of Work"
+                else:
+                    scope_lines = lines
+                if closing_anchor is not None:
+                    closing_lines = lines[closing_anchor:]
+                else:
+                    closing_lines = ["Sincerely,", "Mark Hirsch"]
+                # Normalize closing to end with exactly 'Sincerely,\nMark Hirsch'
+                if len(closing_lines) == 1 and closing_lines[0].strip() == "Sincerely,":
+                    closing_lines.append("Mark Hirsch")
+                elif len(closing_lines) > 1:
+                    if closing_lines[0].strip() != "Sincerely,":
+                        closing_lines = ["Sincerely,", "Mark Hirsch"]
                     else:
-                        filtered_lines.append(line)
-                professional_text = "\n".join(filtered_lines)
+                        closing_lines = ["Sincerely,", "Mark Hirsch"]
+                # Build professional_text
+                intro = "\n".join([l for l in intro_lines if l.strip()])
+                closing = "\n".join([l for l in closing_lines if l.strip()])
+                if intro and closing:
+                    professional_text = f"{intro}\n\n{closing}"
+                elif intro:
+                    professional_text = intro
+                else:
+                    professional_text = closing
+                # Build line_items from scope
+                line_items = []
+                money_re = re.compile(r"^(Cost|Subtotal|Overhead and Profit.*|Grand Total.*)\s*:\s*\$([\d,]+)\.(\d{2})$")
+                for line in scope_lines:
+                    l = line.rstrip()
+                    if not l.strip():
+                        continue
+                    m = money_re.match(l)
+                    if m:
+                        label = m.group(1).strip()
+                        amt_str = m.group(2).replace(",", "")
+                        amt_dec = m.group(3)
+                        amount_cents = int(amt_str) * 100 + int(amt_dec)
+                        line_items.append({"description": label, "amount_cents": amount_cents})
+                    else:
+                        line_items.append({"description": l, "amount_cents": None})
                 proposal_data = {
                     "document_type": document_type,
                     "session_id": payload.session_id,
