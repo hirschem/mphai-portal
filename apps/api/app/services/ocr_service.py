@@ -18,8 +18,8 @@ class OCRService:
         for path in image_paths:
             try:
                 result = await self.transcribe_image(Path(path))
-            except Exception as e:
-                logging.error(f"OCR exception: {e}")
+            except Exception:
+                logging.exception("OCR exception while transcribing %s", path)
                 result = "PROFESSIONAL_TEXT_STUB"
             results.append(result)
         return results

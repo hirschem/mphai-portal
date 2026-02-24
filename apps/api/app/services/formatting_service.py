@@ -69,6 +69,29 @@ async def generate_doc(user_prompt, llm_client):
             )
 
 class FormattingService:
+
+    async def rewrite_structured_proposal(self, ocr_texts: list[str]) -> str:
+        filtered = [t for t in ocr_texts if t.strip()]
+        combined_text = "\n\n".join(filtered)
+        prompt = (
+            "Rewrite the following raw OCR text into a professional construction proposal. "
+            "Format: Short introduction paragraph.\n\nPROJECT SCOPE\nBullet points describing work to be performed. "
+            "If materials are mentioned, add a MATERIALS section with bullet points. "
+            "If timeframe is mentioned, add a TIMEFRAME section as a short paragraph. "
+            "Omit any section not mentioned. Do NOT apologize. Do NOT explain. Do NOT add commentary. No markdown, no code, no extra commentary. Friendly, intelligent, clear construction language."
+        )
+        full_prompt = prompt + "\n\n" + combined_text
+        async def _do_call():
+            return await self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "user", "content": full_prompt}
+                ],
+                max_tokens=2000,
+                temperature=0.0
+            )
+        response = await call_openai_with_retry(_do_call, max_attempts=3, per_attempt_timeout_s=20.0)
+        return response.choices[0].message.content.strip()
     def __init__(self):
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
