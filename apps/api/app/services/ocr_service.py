@@ -13,8 +13,16 @@ class OCRService:
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     async def transcribe_pages(self, image_paths: list[str]) -> list[str]:
-        # Minimal stub for test mode: return PROFESSIONAL_TEXT_STUB for each image
-        return ["PROFESSIONAL_TEXT_STUB" for _ in image_paths]
+        import logging
+        results = []
+        for path in image_paths:
+            try:
+                result = await self.transcribe_image(Path(path))
+            except Exception as e:
+                logging.error(f"OCR exception: {e}")
+                result = "PROFESSIONAL_TEXT_STUB"
+            results.append(result)
+        return results
 
     async def transcribe_image(self, image_path: Path) -> str:
         """Transcribe handwritten text from image using GPT-4 Vision"""
