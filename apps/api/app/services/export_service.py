@@ -299,7 +299,7 @@ class ExportService:
                     if not text:
                         continue
                     money_pattern = re.compile(r"(\$\s*\d{1,3}(,\d{3})*(\.\d{2})?$|^\d{1,3}(,\d{3})*(\.\d{2})?$|\$\d+(\.\d{2})?|\d+\.\d{2}$)")
-                    line_item_pattern = re.compile(r"(\s{2,}.+\d+\.\d{2}$|@\d+['"]|@\d+)")
+                    line_item_pattern = re.compile(r"(\s{2,}.+\d+\.\d{2}$|@\d+['\"]|@\d+)")
                     if document_type == "invoice":
                         if invoice_lines_rendered >= max_invoice_lines:
                             break
