@@ -131,8 +131,7 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                 extracted_client_name = client_name
                 extracted_address = address
                 if not client_name or not address:
-                    from app.services.formatting_service import get_openai_client
-                    openai_client = get_openai_client()
+                    openai_client = get_formatting_service().client
                     extract_prompt = (
                         "Extract client name and project address from the following construction notes. "
                         "Return a JSON object with keys: client_name and project_address. "
