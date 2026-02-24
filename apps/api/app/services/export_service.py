@@ -285,6 +285,7 @@ class ExportService:
             paragraphs = professional_text.strip().split('\n\n')
             max_invoice_lines = 6
             invoice_lines_rendered = 0
+            money_regex = re.compile(r"(\$?\d{1,3}(?:,\d{3})*\.\d{2})")
             for paragraph in paragraphs:
                 if not paragraph.strip():
                     continue
@@ -298,15 +299,10 @@ class ExportService:
                     # Filter layer: skip unwanted lines
                     if not text:
                         continue
-                    money_pattern = re.compile(r"(\$\s*\d{1,3}(,\d{3})*(\.\d{2})?$|^\d{1,3}(,\d{3})*(\.\d{2})?$|\$\d+(\.\d{2})?|\d+\.\d{2}$)")
                     line_item_pattern = re.compile(r"(\s{2,}.+\d+\.\d{2}$|@\d+['\"]|@\d+)")
                     if document_type == "invoice":
                         if invoice_lines_rendered >= max_invoice_lines:
                             break
-                        if money_pattern.search(text):
-                            continue
-                        if line_item_pattern.search(text):
-                            continue
                         if (
                             text.startswith("PROPOSAL (FALLBACK)") or
                             text.startswith("Session:") or
@@ -324,24 +320,48 @@ class ExportService:
                             "--- Page" in text or
                             text.startswith("Page ") or
                             text.startswith("```") or
-                            text in {"---", "#", "##", "###", "####", "#####", "######", "*", "**", "***", "```"} or
-                            (money_pattern.search(text) and len(text.split()) > 1)
+                            text in {"---", "#", "##", "###", "####", "#####", "######", "*", "**", "***", "```"}
                         ):
                             continue
                     if text.startswith('-') or text.startswith('•'):
                         text = '• ' + text.lstrip('-•').strip()
-                    # Use width-based wrapping for professional_text
-                    prof_font_name = "Helvetica"
-                    prof_font_size = 12
-                    prof_max_width = width - 2 * left_margin
-                    wrapped_prof_lines = wrap_text_to_width(text, prof_font_name, prof_font_size, prof_max_width)
-                    for wrapped_line in wrapped_prof_lines:
-                        if y_position < bottom_margin + 30:
-                            can.showPage()
-                            y_position = height - 1.5 * inch
-                            can.setFont(prof_font_name, prof_font_size)
-                        can.drawString(left_margin, y_position, wrapped_line)
-                        y_position -= 15
+                    # Money split logic
+                    money_match = money_regex.search(text)
+                    if money_match:
+                        amount_text = money_match.group(1)
+                        left_text = text[:money_match.start()].rstrip()
+                        # Always prefix $ if missing
+                        if not amount_text.startswith("$"):
+                            amount_text = "$" + amount_text
+                        prof_font_name = "Helvetica"
+                        prof_font_size = 12
+                        # Wrap left_text to Description column width
+                        desc_max_width = divider_x - left_margin - self.DESC_PAD_R
+                        wrapped_left_lines = wrap_text_to_width(left_text, prof_font_name, prof_font_size, desc_max_width)
+                        first_line = True
+                        for wrapped_line in wrapped_left_lines or [""]:
+                            if y_position < bottom_margin + 30:
+                                can.showPage()
+                                y_position = height - 1.5 * inch
+                                can.setFont(prof_font_name, prof_font_size)
+                            can.drawString(left_margin, y_position, wrapped_line)
+                            if first_line:
+                                can.drawRightString(amount_right_x - self.AMT_PAD_R, y_position, amount_text)
+                                first_line = False
+                            y_position -= 15
+                    else:
+                        # Use width-based wrapping for professional_text
+                        prof_font_name = "Helvetica"
+                        prof_font_size = 12
+                        prof_max_width = width - 2 * left_margin
+                        wrapped_prof_lines = wrap_text_to_width(text, prof_font_name, prof_font_size, prof_max_width)
+                        for wrapped_line in wrapped_prof_lines:
+                            if y_position < bottom_margin + 30:
+                                can.showPage()
+                                y_position = height - 1.5 * inch
+                                can.setFont(prof_font_name, prof_font_size)
+                            can.drawString(left_margin, y_position, wrapped_line)
+                            y_position -= 15
                 y_position -= 5
         # Timeline (proposal only)
         if document_type == "proposal" and getattr(data, "timeline", None):
