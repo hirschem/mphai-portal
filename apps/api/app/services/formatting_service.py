@@ -74,13 +74,45 @@ class FormattingService:
         filtered = [t for t in ocr_texts if t.strip()]
         combined_text = "\n\n".join(filtered)
         prompt = (
-            "Rewrite the following raw OCR text into a professional construction proposal. "
-            "Format: Short introduction paragraph.\n\nPROJECT SCOPE\nBullet points describing work to be performed. "
-            "If materials are mentioned, add a MATERIALS section with bullet points. "
-            "If timeframe is mentioned, add a TIMEFRAME section as a short paragraph. "
-            "Omit any section not mentioned. Do NOT apologize. Do NOT explain. Do NOT add commentary. No markdown, no code, no extra commentary. Friendly, intelligent, clear construction language."
+            "Rewrite the following raw construction notes into a clean, professional proposal using the exact structure below.\n\n"
+            "RULES:\n\n"
+            "Output plain text only.\n"
+            "No markdown.\n"
+            "No asterisks.\n"
+            "No code fences.\n"
+            "Do not repeat headings.\n"
+            "Do not invent scope items.\n"
+            "Preserve all scope details exactly as written.\n"
+            "Clean grammar and wording but do not change meaning.\n"
+            "Tone must be professional, confident, and direct.\n"
+            "No filler language.\n\n"
+            "COST RULES:\n\n"
+            "If individual line item costs are provided but no subtotal is written, calculate and include Subtotal.\n"
+            "If a cost range is written (example: 5000-6000), format it as:\n"
+            "Estimated Cost Range: $5,000.00 – $6,000.00\n"
+            "If overhead percentage is written (example: 20%), calculate it based on subtotal and include it.\n"
+            "If a grand total is not written but can be calculated, calculate and include it.\n"
+            "If totals are already written, preserve them exactly as provided.\n\n"
+            "FORMAT:\n\n"
+            "Intro paragraph (1–2 sentences maximum)\n\n"
+            "Scope of Work\n\n"
+            "Section Title\n"
+            "• Bullet\n"
+            "• Bullet\n"
+            "Cost: $X,XXX.XX\n\n"
+            "Section Title\n"
+            "• Bullet\n"
+            "• Bullet\n"
+            "Cost: $X,XXX.XX\n\n"
+            "(Continue as needed)\n\n"
+            "Subtotal: $X,XXX.XX\n"
+            "Overhead (if applicable): $X,XXX.XX\n"
+            "Grand Total: $X,XXX.XX\n\n"
+            "Sincerely,\n"
+            "Mark Hirsch\n\n"
+            "RAW NOTES:\n{combined OCR text}"
         )
-        full_prompt = prompt + "\n\n" + combined_text
+        full_prompt = prompt.replace("{combined OCR text}", combined_text)
         async def _do_call():
             return await self.client.chat.completions.create(
                 model="gpt-4o",
