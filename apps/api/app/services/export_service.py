@@ -396,23 +396,32 @@ class ExportService:
         if debug:
             print("TEMPLATE GENERATOR MODULE:", generate_invoice_templates.__file__)
         # Dynamically generate the finalized template PDF (Page 1)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_template:
-            # Only copy the template file; do not regenerate at runtime
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_template_pg1:
             with open(generate_invoice_templates.PAGE1_PATH, "rb") as fsrc:
-                tmp_template.write(fsrc.read())
-            tmp_template.flush()
-            tmp_template_path = tmp_template.name
+                tmp_template_pg1.write(fsrc.read())
+            tmp_template_pg1.flush()
+            tmp_template_path_pg1 = tmp_template_pg1.name
+        # Try to create PAGE2_PATH, fallback to PAGE1_PATH if missing
+        import os
+        if os.path.exists(generate_invoice_templates.PAGE2_PATH):
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_template_pg2:
+                with open(generate_invoice_templates.PAGE2_PATH, "rb") as fsrc:
+                    tmp_template_pg2.write(fsrc.read())
+                tmp_template_pg2.flush()
+                tmp_template_path_pg2 = tmp_template_pg2.name
+        else:
+            tmp_template_path_pg2 = tmp_template_path_pg1
         overlay_pdf = PdfReader(packet)
         output = None
         if len(overlay_pdf.pages) > 0:
-            output = PdfWriter(clone_from=tmp_template_path)
+            output = PdfWriter(clone_from=tmp_template_path_pg1)
             page = output.pages[0]
             page.merge_page(overlay_pdf.pages[0])
         for i in range(1, len(overlay_pdf.pages)):
             if output is None:
-                output = PdfWriter(clone_from=tmp_template_path)
+                output = PdfWriter(clone_from=tmp_template_path_pg1)
             else:
-                extra_writer = PdfWriter(clone_from=tmp_template_path)
+                extra_writer = PdfWriter(clone_from=tmp_template_path_pg2)
                 output.add_page(extra_writer.pages[0])
             page = output.pages[-1]
             page.merge_page(overlay_pdf.pages[i])
