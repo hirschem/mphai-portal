@@ -16,7 +16,7 @@ class BookOCRService:
     
     async def transcribe_pages(self, image_paths: List[str]) -> str:
         """Transcribe multiple book pages in order, preserving exact text"""
-        all_text = []
+        parts: list[str] = []
         for i, image_path in enumerate(image_paths, 1):
             with open(image_path, "rb") as image_file:
                 image_data = base64.b64encode(image_file.read()).decode('utf-8')
@@ -28,18 +28,7 @@ class BookOCRService:
                         {
                             "role": "system",
                             "content": (
-                                "You are a precise transcription assistant. "
-                                "Transcribe the handwritten text EXACTLY as written, word-for-word. "
-                                "DO NOT:\n"
-                                "- Change, rephrase, or improve any wording\n"
-                                "- Fix grammar or spelling unless clearly an error\n"
-                                "- Add punctuation that isn't there\n"
-                                "- Skip or summarize anything\n\n"
-                                "DO:\n"
-                                "- Preserve the exact words and phrasing\n"
-                                "- Maintain paragraph breaks\n"
-                                "- Use [illegible] if you cannot read a word\n"
-                                "- Transcribe everything visible on the page"
+                                "Transcribe all visible text from the image(s) verbatim. Preserve line breaks. If a word is unclear, write [illegible]. Do not add commentary."
                             )
                         },
                         {
@@ -47,7 +36,7 @@ class BookOCRService:
                             "content": [
                                 {
                                     "type": "text",
-                                    "text": f"Transcribe this handwritten page (Page {i}):"
+                                    "text": f"Transcribe this page (Page {i}):"
                                 },
                                 {
                                     "type": "image_url",
@@ -63,5 +52,5 @@ class BookOCRService:
 
             response = await call_openai_with_retry(_do_call, max_attempts=3, per_attempt_timeout_s=20.0)
             page_text = response.choices[0].message.content
-            all_text.append(f"[Page {i}]\n\n{page_text}")
-        return "\n\n".join(all_text)
+            parts.append(f"--- Page {i} ---\n{page_text}")
+        return "\n\n---\n\n".join(parts)
