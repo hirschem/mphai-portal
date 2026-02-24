@@ -43,9 +43,12 @@ class OCRService:
                             {
                                 "type": "text",
                                 "text": (
-                                    "Transcribe all handwritten text from this image. "
-                                    "This is a construction proposal written by a contractor. "
-                                    "Extract exactly what is written, maintaining the structure and details."
+                                    "You are extracting text from an image.\n"
+                                    "IMPORTANT:\n"
+                                    "- Transcribe ONLY HANDWRITTEN text (pen/pencil/marker).\n"
+                                    "- IGNORE all printed/pre-printed text, letterhead, logos, slogans, address blocks, phone/email labels, and any template text on the page.\n"
+                                    "- If you are not sure whether something is printed or handwritten, do NOT include it.\n"
+                                    "- Output only the handwritten content. Do not add commentary."
                                 )
                             },
                             {

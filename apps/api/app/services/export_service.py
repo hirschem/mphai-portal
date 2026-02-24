@@ -302,6 +302,21 @@ class ExportService:
                     # Minimal cleanup
                     line = line.strip()
                     lower = line.lower()
+                    printed_phrases = [
+                        "mph construction",
+                        "there is nothing under the sky",
+                        "invoice/estimate",
+                        "lone tree",
+                        "phone",
+                        "email:",
+                    ]
+                    if any(p in lower for p in printed_phrases):
+                        continue
+
+                    # also skip obvious all-caps slogan/letterhead lines
+                    if line.isupper() and len(line) <= 60:
+                        if "MPH" in line or "CONSTRUCTION" in line or "PAINTING" in line:
+                            continue
                     # Drop junk/meta lines (case-insensitive)
                     if any(s in lower for s in ["here is the transcribed", "transcribed handwritten", "from the image", "```"]):
                         continue
