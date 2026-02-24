@@ -283,12 +283,9 @@ class ExportService:
         if professional_text:
             import re
             paragraphs = professional_text.strip().split('\n\n')
-            max_invoice_lines = 6
-            invoice_lines_rendered = 0
-            money_cents_re = re.compile(r"(\$?\d{1,3}(?:,\d{3})*\.\d{2})")
-            money_whole_re = re.compile(r"(\$?\d{1,3}(?:,\d{3})*)\b(?!\.)")
-            in_orphan_amount_block = False
-            amount_only_re = re.compile(r"^\$?\d{1,3}(?:,\d{3})*(?:\.\d{2})?$")
+            money_cents_re = re.compile(r'(\$?\d{1,3}(?:,\d{3})*\.\d{2})')
+            money_whole_re = re.compile(r'(\$?\d{1,3}(?:,\d{3})*)\b(?!\.)')
+            amount_only_re = re.compile(r'^\$?\d{1,3}(?:,\d{3})*(?:\.\d{2})?$')
             for paragraph in paragraphs:
                 if not paragraph.strip():
                     continue
@@ -297,44 +294,26 @@ class ExportService:
                     y_position = height - 1.5 * inch
                     can.setFont("Helvetica", 12)
                 lines = paragraph.strip().split('\n')
+                in_orphan_amount_block = False
                 for line in lines:
                     raw = line
-                    # Minimal cleanup
                     line = line.strip()
                     lower = line.lower()
-                    printed_phrases = [
-                        "mph construction",
-                        "there is nothing under the sky",
-                        "invoice/estimate",
-                        "lone tree",
-                        "phone",
-                        "email:",
-                    ]
-                    if any(p in lower for p in printed_phrases):
+                    # Suppress junk/meta lines
+                    if line.startswith("Session:") or lower.startswith("session:"):
                         continue
-
-                    # also skip obvious all-caps slogan/letterhead lines
-                    if line.isupper() and len(line) <= 60:
-                        if "MPH" in line or "CONSTRUCTION" in line or "PAINTING" in line:
-                            continue
-                    # Drop junk/meta lines (case-insensitive)
+                    if line.startswith("PROPOSAL (FALLBACK)"):
+                        continue
                     if any(s in lower for s in ["here is the transcribed", "transcribed handwritten", "from the image", "```"]):
                         continue
-                    # Drop obvious page/session markers only (not the words in general)
-                    if lower.startswith("--- page") or lower.startswith("page ") or lower.startswith("session "):
-                        continue
-                    # Remove markdown/artifacts (be careful: don't nuke '*' globally)
+                    # Remove markdown/artifacts safely
                     line = line.replace("**", "").replace("`", "")
-                    line = line.replace("\\", "")  # remove backslashes from escaped markdown
-                    # Treat leading '*' as a bullet only
+                    line = line.replace("\\", "")
                     if line.startswith("* "):
                         line = "• " + line[2:].strip()
-                    line = ' '.join(line.split())  # collapse whitespace
+                    line = ' '.join(line.split())
                     line = line.strip()
                     if not line:
-                        continue
-                    # Suppress only the header line
-                    if line.startswith("PROPOSAL (FALLBACK)"):
                         continue
                     # Orphan Amount block suppression
                     if line.lower() == "amount":
@@ -349,16 +328,13 @@ class ExportService:
                     money_match = money_cents_re.search(line)
                     money_is_whole = False
                     if not money_match:
-                        # only treat whole-dollar as money if the line has letters too (label + number)
                         has_letters = any(ch.isalpha() for ch in line)
                         if has_letters:
                             money_match = money_whole_re.search(line)
                             money_is_whole = bool(money_match)
-
                     if money_match:
                         amount_text = money_match.group(1)
                         label_text = line[:money_match.start()].rstrip(" :\t")
-
                         if not amount_text.startswith("$"):
                             amount_text = "$" + amount_text
                         if money_is_whole and "." not in amount_text:
@@ -384,7 +360,7 @@ class ExportService:
                         line = '• ' + line.lstrip('-•').strip()
                     prof_font_name = "Helvetica"
                     prof_font_size = 12
-                    prof_max_width = width - 2 * left_margin
+                    prof_max_width = divider_x - left_margin - self.DESC_PAD_R
                     wrapped_prof_lines = wrap_text_to_width(line, prof_font_name, prof_font_size, prof_max_width)
                     for wrapped_line in wrapped_prof_lines:
                         if y_position < bottom_margin + 30:
@@ -453,10 +429,66 @@ class ExportService:
                     can.drawString(left_margin, y_position, current_line.strip())
                     y_position -= 15
         # Add Total at the bottom
+        import re
+        range_re = re.compile(r"\$?\d{1,3}(?:,\d{3})*(?:\.\d{2})?\s*[-–]\s*\$?\d{1,3}(?:,\d{3})*(?:\.\d{2})?")
+        money_cents_re = re.compile(r"\$?\d{1,3}(?:,\d{3})*\.\d{2}")
+        money_whole_re = re.compile(r"\$?\d{1,3}(?:,\d{3})*\b(?!\.)")
+        money_label_re = re.compile(r"\b(cost|subtotal|total|grand total|overhead|profit)\b", re.I)
+        min_total = 0.0
+        max_total = 0.0
+        found_range = False
+        found_money = False
         total_amount = getattr(data, "total", 0) or 0
+        line_items = getattr(data, "line_items", None)
+        if line_items and len(line_items) > 0:
+            total_display = f"${total_amount:,.2f}"
+        else:
+            if professional_text:
+                paragraphs = professional_text.strip().split('\n\n')
+                for paragraph in paragraphs:
+                    lines = paragraph.strip().split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        is_moneyish = ("$" in line) or money_label_re.search(line.lower()) or ("—" in line)
+                        # Range detection
+                        range_match = range_re.search(line)
+                        if range_match and is_moneyish:
+                            found_range = True
+                            found_money = True
+                            amounts = []
+                            cents_tokens = money_cents_re.findall(line)
+                            if len(cents_tokens) >= 2:
+                                amounts = cents_tokens
+                            else:
+                                whole_tokens = money_whole_re.findall(line)
+                                if len(whole_tokens) >= 2:
+                                    amounts = whole_tokens
+                            if len(amounts) >= 2:
+                                amt1 = float(amounts[0].replace('$','').replace(',',''))
+                                amt2 = float(amounts[1].replace('$','').replace(',',''))
+                                min_total += amt1
+                                max_total += amt2
+                            continue
+                        # Single money line
+                        money_match = money_cents_re.search(line)
+                        if not money_match and is_moneyish:
+                            money_match = money_whole_re.search(line)
+                        if money_match and is_moneyish:
+                            found_money = True
+                            amt = float(money_match.group(0).replace('$','').replace(',',''))
+                            min_total += amt
+                            max_total += amt
+            if not found_money:
+                total_display = "TO BE DETERMINED"
+            elif found_range:
+                total_display = f"${min_total:,.2f} – ${max_total:,.2f}"
+            else:
+                total_display = f"${min_total:,.2f}"
         can.setFont("Helvetica-Bold", 14)
         can.drawString(5.5 * inch, 1 * inch, "Total:")
-        can.drawRightString(amount_right_x - self.AMT_PAD_R, 1 * inch, f"${total_amount:.2f}")
+        can.drawRightString(amount_right_x - self.AMT_PAD_R, 1 * inch, total_display)
         can.save()
         packet.seek(0)
         # Merge with template if it exists

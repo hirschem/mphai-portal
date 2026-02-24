@@ -74,11 +74,33 @@ class FormattingService:
         filtered = [t for t in ocr_texts if t.strip()]
         combined_text = "\n\n".join(filtered)
         prompt = (
-            "Rewrite the following raw OCR text into a professional construction proposal. "
-            "Format: Short introduction paragraph.\n\nPROJECT SCOPE\nBullet points describing work to be performed. "
-            "If materials are mentioned, add a MATERIALS section with bullet points. "
-            "If timeframe is mentioned, add a TIMEFRAME section as a short paragraph. "
-            "Omit any section not mentioned. Do NOT apologize. Do NOT explain. Do NOT add commentary. No markdown, no code, no extra commentary. Friendly, intelligent, clear construction language."
+            "You are turning handwritten notes into a clean invoice/proposal scope list.\n"
+            "Hard rules:\n"
+            "- Plain text only. No markdown, no bullets like '*' (use '•' only if needed).\n"
+            "- Do NOT include printed/letterhead content (company slogans, phone, email, address).\n"
+            "- Do NOT include 'Session:' or 'Page:' lines.\n"
+            "- Do NOT output stand-alone numbers or an 'Amount' section.\n"
+            "Pricing Rules:\n"
+            "- If the handwritten notes contain no dollar amounts anywhere, do NOT invent pricing.\n"
+            "- In that case, output the scope only and include a final line:\n"
+            "  'Total: TO BE DETERMINED'\n"
+            "- If a line shows a price range (example: 5000-7000 or 5,000 – 7,000):\n"
+            "  Format it exactly as:\n"
+            "  'Description — $5,000.00 – $7,000.00'\n"
+            "- If any line uses a range price, the final total must also show a range:\n"
+            "  'Total: $X,XXX.XX – $Y,YYY.YY'\n"
+            "- Always normalize money with '$' and two decimals.\n"
+            "- Never output stand-alone number columns.\n"
+            "Output format:\n"
+            "- Produce a list of charge items.\n"
+            "- EACH charge item must include BOTH a description and a price.\n"
+            "- Format each priced line exactly like:\n"
+            "  'Description — $1,234.56'\n"
+            "- If the notes show an amount off to the right (like '650 00'), treat it as $650.00.\n"
+            "- If an amount has no '$' or no decimals, normalize it to dollars with two decimals.\n"
+            "- If you cannot confidently pair a description with a price, omit it (do not guess).\n"
+            "Voice:\n"
+            "Older, friendly, experienced construction owner: plain, direct, practical wording."
         )
         full_prompt = prompt + "\n\n" + combined_text
         async def _do_call():

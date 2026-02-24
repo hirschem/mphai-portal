@@ -43,12 +43,12 @@ class OCRService:
                             {
                                 "type": "text",
                                 "text": (
-                                    "You are extracting text from an image.\n"
-                                    "IMPORTANT:\n"
-                                    "- Transcribe ONLY HANDWRITTEN text (pen/pencil/marker).\n"
-                                    "- IGNORE all printed/pre-printed text, letterhead, logos, slogans, address blocks, phone/email labels, and any template text on the page.\n"
-                                    "- If you are not sure whether something is printed or handwritten, do NOT include it.\n"
-                                    "- Output only the handwritten content. Do not add commentary."
+                                    "Extract ONLY HANDWRITTEN text from the image.\n"
+                                    "Ignore ALL printed text, letterhead, logos, slogans, phone/email labels, addresses, and template headings.\n"
+                                    "If you are not sure whether something is printed or handwritten, DO NOT include it.\n"
+                                    "Do not add commentary. Do not add page/session markers.\n"
+                                    "Return plain text only.\n"
+                                    "Preserve line breaks roughly as written."
                                 )
                             },
                             {
