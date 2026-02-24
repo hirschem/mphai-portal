@@ -65,9 +65,9 @@ export default function UploadForm({ onSuccess }: UploadFormProps) {
     setError(null)
 
     try {
-      // Step 1: Upload and transcribe (use first file for now, can be enhanced for multi-page)
+      // Step 1: Upload and transcribe (append all files in order)
       const fd = new FormData();
-      fd.append('file', files[0]);
+      for (const f of files) fd.append('file', f);
       // TEMP upload debug logs
       console.log('UPLOAD DEBUG — fd type:', Object.prototype.toString.call(fd));
       console.log('UPLOAD DEBUG — instanceof FormData:', fd instanceof FormData);

@@ -115,16 +115,6 @@ export async function apiFetchWithMeta<T = unknown>(
   let res: Response;
   let requestId: string | undefined = undefined;
 
-  // Detailed auth debug log
-  console.log("AUTH DEBUG", {
-    url,
-    tokenParam: token ? token.slice(0, 12) + "..." : null,
-    accessFromGetter: readAuthToken()?.slice(0, 12) + "..." ?? null,
-    finalToken: finalToken ? finalToken.slice(0, 12) + "..." : null,
-    authHeaderBeforeFetch: headers.get("Authorization"),
-    hasAuthHeader: headers.has("Authorization"),
-    headerKeys: Array.from(headers.keys()),
-  });
 
   try {
     res = await fetch(url, { ...init, headers });

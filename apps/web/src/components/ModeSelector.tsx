@@ -10,7 +10,7 @@ export default function ModeSelector() {
       <div className="max-w-4xl w-full">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            MPH Handwriting
+            MPH Portal
           </h1>
           <p className="text-lg text-gray-600">
             Choose your mode to get started

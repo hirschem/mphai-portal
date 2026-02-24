@@ -59,19 +59,6 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
           >
             Download PDF
           </button>
-          <button
-            disabled
-            className="bg-blue-300 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 opacity-50 cursor-not-allowed"
-          >
-            Email
-          </button>
-          <button
-            type="button"
-            onClick={logout}
-            className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2"
-          >
-            Logout
-          </button>
         </div>
         <div className="text-gray-700">No session loaded. Please upload a proposal.</div>
       </div>
@@ -97,28 +84,6 @@ export default function ProposalDisplay({ sessionId, data }: ProposalDisplayProp
               />
             </svg>
             Download PDF
-          </button>
-          <button
-            onClick={handleEmail}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
-            disabled={!sessionId}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-            Email
-          </button>
-          <button
-            type="button"
-            onClick={logout}
-            className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2"
-          >
-            Logout
           </button>
         </div>
       </div>
