@@ -80,6 +80,11 @@ class ExportService:
         """Generate PDF by overlaying data onto MPH template, with header for proposal/invoice
         If STRESS_TEST_DEBUG=1 and session_id=="STRESS_TEST", also write overlay-only and template-only PDFs for inspection.
         """
+        import logging
+        logger = logging.getLogger("mphai")
+        logger.info("PDF DEBUG line_items: %s", data.line_items)
+        logger.info("PDF DEBUG total: %s", data.total)
+        logger.info("PDF DEBUG professional_text: %s", professional_text)
         def wrap_text_to_width(text, font_name, font_size, max_width):
             from reportlab.pdfbase import pdfmetrics
             safe_width = max_width - 2  # internal buffer to prevent borderline overflow
