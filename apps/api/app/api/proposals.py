@@ -266,30 +266,36 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                 status_code=500,
             )
 
-        # In fallback mode, override line_items from professional_text
+        # In fallback mode, rebuild line_items from professional_text for PDF table
         if used_aidoc_fallback:
-            line_items = []
-            total = None
-            for line in (professional_text or '').splitlines():
-                line = line.strip()
-                if not line:
+            lines = [ln.strip() for ln in professional_text.splitlines() if ln.strip()]
+            new_items = []
+            parsed_total = None
+            def parse_money(val):
+                val = val.replace("$", "").replace(",", "").strip()
+                try:
+                    return float(val)
+                except Exception:
+                    return None
+            for line in lines:
+                if line.lower().startswith("total:"):
+                    money_part = line[len("total:"):].strip()
+                    parsed_val = parse_money(money_part)
+                    if parsed_val is not None:
+                        parsed_total = parsed_val
                     continue
-                if '— $' in line:
-                    # Priced line: split on '— $'
-                    parts = line.split('— $', 1)
-                    desc = parts[0].strip()
-                    amt = parts[1].strip()
-                    # Remove trailing non-numeric from amt (e.g. if '1,234.56' or '1,234.56 – 2,000.00')
-                    line_items.append({'description': desc, 'amount': amt})
-                elif line.lower().startswith('total:'):
-                    total_val = line[len('total:'):].strip()
-                    total = total_val
+                elif "—" in line and "$" in line:
+                    desc, amt = line.rsplit("—", 1)
+                    desc = desc.strip()
+                    amt = amt.strip()
+                    parsed_amt = parse_money(amt)
+                    new_items.append({"description": desc, "amount": parsed_amt})
                 else:
-                    # Unpriced line
-                    line_items.append({'description': line, 'amount': None})
-            proposal_data_obj.line_items = line_items
-            if total is not None:
-                proposal_data_obj.total = total
+                    new_items.append({"description": line, "amount": None})
+            if new_items:
+                proposal_data_obj.line_items = new_items
+            if parsed_total is not None:
+                proposal_data_obj.total = parsed_total
 
         # Save to session with correct naming
         await file_manager.save_proposal(payload.session_id, proposal_data_obj, document_type=document_type)
