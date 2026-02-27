@@ -255,6 +255,31 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                 status_code=500,
             )
 
+        # In fallback mode, override line_items from professional_text
+        if used_aidoc_fallback:
+            line_items = []
+            total = None
+            for line in (professional_text or '').splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                if '— $' in line:
+                    # Priced line: split on '— $'
+                    parts = line.split('— $', 1)
+                    desc = parts[0].strip()
+                    amt = parts[1].strip()
+                    # Remove trailing non-numeric from amt (e.g. if '1,234.56' or '1,234.56 – 2,000.00')
+                    line_items.append({'description': desc, 'amount': amt})
+                elif line.lower().startswith('total:'):
+                    total_val = line[len('total:'):].strip()
+                    total = total_val
+                else:
+                    # Unpriced line
+                    line_items.append({'description': line, 'amount': None})
+            proposal_data_obj.line_items = line_items
+            if total is not None:
+                proposal_data_obj.total = total
+
         # Save to session with correct naming
         await file_manager.save_proposal(payload.session_id, proposal_data_obj, document_type=document_type)
         logger.info(f"[save_proposal] session_id={payload.session_id} done")
