@@ -321,6 +321,9 @@ class ExportService:
                     line = line.strip()
                     if not line:
                         continue
+                    # Suppress standalone 1–2 digit lines (no $)
+                    if re.fullmatch(r"\d{1,2}", line) and "$" not in line:
+                        continue
                     if re.match(r"^\d{1,3}$", line):
                         continue
                     cleaned_lines.append(line)
@@ -352,8 +355,14 @@ class ExportService:
                             amount_text = "$" + amount_text
                         if money_is_whole and "." not in amount_text:
                             amount_text = amount_text + ".00"
-                        # Hard guard: skip money alignment if not real money
-                        if (not raw_has_dollar and amount_text == "$1.00" and len(raw.strip()) <= 6):
+                        # Prevent small false money (ghost $1.00)
+                        try:
+                            parsed_amount = float(amount_text.replace("$", "").replace(",", ""))
+                        except Exception:
+                            parsed_amount = 0
+                        if parsed_amount < 50 and not raw_has_dollar:
+                            pass  # fall through to normal rendering
+                        elif (not raw_has_dollar and amount_text == "$1.00" and len(raw.strip()) <= 6):
                             pass  # fall through to normal rendering
                         else:
                             # If this is the last cleaned line and amount-only, label as Total
