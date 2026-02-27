@@ -168,6 +168,9 @@ class FormattingService:
                 "AI_SCHEMA_VALIDATION_FAILED",
                 "Proposal output was not a JSON object."
             )
+        # Normalization: if client_address exists and project_address does not, copy client_address
+        if "client_address" in data and "project_address" not in data:
+            data["project_address"] = data["client_address"]
         return data
 
     async def rewrite_structured_proposal(self, ocr_texts: list[str]) -> str:
