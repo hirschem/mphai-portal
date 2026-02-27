@@ -168,9 +168,17 @@ class FormattingService:
                 "AI_SCHEMA_VALIDATION_FAILED",
                 "Proposal output was not a JSON object."
             )
-        # Normalization: if client_address exists and project_address does not, copy client_address
-        if "client_address" in data and "project_address" not in data:
+        # Normalize client fields for ProposalData compatibility
+        # 1. If client_name exists and is non-empty, keep as is (no-op)
+        # 2. If client_address exists and project_address is missing/empty, set project_address = client_address
+        if data.get("client_address") and not data.get("project_address"):
             data["project_address"] = data["client_address"]
+        # 3. If address exists and project_address is missing/empty, set project_address = address
+        if data.get("address") and not data.get("project_address"):
+            data["project_address"] = data["address"]
+        # 4. If project_address exists but client_address is missing, set client_address = project_address
+        if data.get("project_address") and not data.get("client_address"):
+            data["client_address"] = data["project_address"]
         return data
 
     async def rewrite_structured_proposal(self, ocr_texts: list[str]) -> str:
@@ -212,7 +220,7 @@ class FormattingService:
                 messages=[
                     {"role": "user", "content": full_prompt}
                 ],
-                max_tokens=2000,
+                    max_tokens=4000,
                 temperature=0.0
             )
         response = await call_openai_with_retry(_do_call, max_attempts=3, per_attempt_timeout_s=20.0)
