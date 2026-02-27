@@ -82,6 +82,8 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
     aidoc_strict = os.environ.get("AIDOC_STRICT", "0") == "1"
     request_id = getattr(request.state, "request_id", None) or request.headers.get("x-request-id")
 
+    structuring_ok = False
+    used_aidoc_fallback = False
     try:
         # Rate limit check (after validation/auth, before any side effects)
         xff = request.headers.get("x-forwarded-for")
@@ -102,8 +104,9 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
         client_name = (getattr(payload, "client_name", None) or "").strip() or None
         address = (getattr(payload, "address", None) or "").strip() or None
         # Log raw text and payload client info before any OpenAI calls
-        logger.info(f"RAW_TEXT_PREVIEW_TOP: {repr(payload.raw_text[:500])}")
-        logger.info(f"PAYLOAD client_name={repr(client_name)} address={repr(address)}")
+        if globals().get("DEBUG", False):
+            logger.info(f"RAW_TEXT_PREVIEW_TOP: {repr(payload.raw_text[:500])}")
+            logger.info(f"PAYLOAD client_name={repr(client_name)} address={repr(address)}")
 
         # Stub mode when OPENAI_API_KEY is missing (local/dev)
         if not os.environ.get("OPENAI_API_KEY"):
@@ -133,6 +136,7 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                 proposal_data = await get_formatting_service().structure_proposal(
                     professional_text, document_type=document_type
                 )
+                structuring_ok = True
                 # TEMP LOG: client_name, project_address, keys
                 logger.info(f"proposal_data client_name: {proposal_data.get('client_name')}")
                 logger.info(f"proposal_data project_address: {proposal_data.get('project_address')}")
@@ -153,6 +157,7 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                         status_code=503,
                     )
                 # Non-strict: fallback ProposalData, set header
+                used_aidoc_fallback = True
                 logger.info(
                     "aidoc_fallback",
                     extra={
@@ -255,9 +260,13 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
         logger.info(f"[save_proposal] session_id={payload.session_id} done")
 
         # Temporary debug logging before PDF rendering
-        logger.info("PDF DEBUG line_items: %s", proposal_data_obj.line_items)
-        logger.info("PDF DEBUG total: %s", proposal_data_obj.total)
-        logger.info("PDF DEBUG professional_text: %s", professional_text)
+        if globals().get("DEBUG", False):
+            logger.info(f"structuring_ok={structuring_ok}")
+            logger.info(f"used_aidoc_fallback={used_aidoc_fallback}")
+            logger.info(f"ProposalData fields: client_name={getattr(proposal_data_obj, 'client_name', None)}, project_address={getattr(proposal_data_obj, 'project_address', None)}, line_items={len(getattr(proposal_data_obj, 'line_items', []) or [])}, total={getattr(proposal_data_obj, 'total', None)}")
+            logger.info("PDF DEBUG line_items: %s", proposal_data_obj.line_items)
+            logger.info("PDF DEBUG total: %s", proposal_data_obj.total)
+            logger.info("PDF DEBUG professional_text: %s", professional_text)
 
         # Generate PDF with correct naming and header
         format = "pdf"
