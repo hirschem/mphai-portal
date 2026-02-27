@@ -141,6 +141,7 @@ async def generate_doc(user_prompt, llm_client):
 class FormattingService:
     async def structure_proposal(self, *args, **kwargs):
         """Backwards-compatible alias for proposals route. Minimal wrapper."""
+        kwargs.pop("document_type", None)
         return await self.rewrite_structured_proposal(*args, **kwargs)
     async def structure_proposal(self, *args, **kwargs):
         """
