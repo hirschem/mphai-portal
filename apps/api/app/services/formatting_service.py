@@ -1,3 +1,28 @@
+CONTRACTOR_PROMPT_PREFIX = (
+    "You MUST return exactly one JSON object matching the ContractorDocV1 schema.\n"
+    "Do NOT return markdown. Do NOT wrap in code fences. Do NOT add any extra text.\n"
+    "No extra keys allowed. No explanations.\n"
+    "The top-level object MUST contain ONLY these keys: schema_version, client_name, client_address, line_items, total_cents.\n"
+    "Do NOT nest under another object. Do NOT add extra keys. Do NOT omit required keys.\n"
+    "\n"
+    "Example ContractorDocV1 JSON:\n"
+    "{\n"
+    "  \"schema_version\": \"v1\",\n"
+    "  \"client_name\": \"Jane Smith\",\n"
+    "  \"client_address\": \"123 Main St, Denver, CO\",\n"
+    "  \"line_items\": [\n"
+    "    {\n"
+    "      \"description\": \"Install carpet\",\n"
+    "      \"amount_cents\": 120000\n"
+    "    },\n"
+    "    {\n"
+    "      \"description\": \"Remove old carpet\",\n"
+    "      \"amount_cents\": 20000\n"
+    "    }\n"
+    "  ],\n"
+    "  \"total_cents\": 140000\n"
+    "}\n"
+)
 from app.services.openai_guard import call_openai_with_retry
 
 
