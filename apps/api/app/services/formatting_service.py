@@ -286,13 +286,32 @@ class FormattingService:
         )
         full_prompt = prompt + "\n\n" + combined_text
         async def _do_call():
+            model_name = "gpt-4o"
+            temperature_value = 0.0
+            max_tokens_value = 4000
+            system_prompt_string = None
+            user_prompt_string = full_prompt
+            logger.info("=== REWRITE_MODEL === %s", model_name)
+            logger.info("=== REWRITE_TEMPERATURE === %s", temperature_value)
+            logger.info("=== REWRITE_MAX_TOKENS === %s", max_tokens_value)
+            logger.info("=== REWRITE_SYSTEM_PROMPT_START ===\n%s\n=== REWRITE_SYSTEM_PROMPT_END ===", system_prompt_string or "None")
+            # Log prompt length
+            logger.info("=== REWRITE_USER_PROMPT_LEN === %s", len(user_prompt_string))
+            # Safe truncation for logging
+            max_log = 8000
+            fp = user_prompt_string
+            if len(fp) > max_log:
+                fp_log = fp[:6000] + "\n...<TRUNCATED>...\n" + fp[-1500:]
+            else:
+                fp_log = fp
+            logger.info("=== REWRITE_USER_PROMPT_START ===\n%s\n=== REWRITE_USER_PROMPT_END ===", fp_log)
             return await self.client.chat.completions.create(
-                model="gpt-4o",
+                model=model_name,
                 messages=[
                     {"role": "user", "content": full_prompt}
                 ],
-                    max_tokens=4000,
-                temperature=0.0
+                max_tokens=max_tokens_value,
+                temperature=temperature_value
             )
         response = await call_openai_with_retry(_do_call, max_attempts=3, per_attempt_timeout_s=20.0)
         return response.choices[0].message.content.strip()
