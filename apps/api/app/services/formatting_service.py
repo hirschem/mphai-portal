@@ -139,6 +139,15 @@ async def generate_doc(user_prompt, llm_client):
                 )
 
 class FormattingService:
+    async def structure_proposal(self, *args, **kwargs):
+        """Backwards-compatible alias for proposals route. Minimal wrapper."""
+        return await self.rewrite_structured_proposal(*args, **kwargs)
+    async def structure_proposal(self, *args, **kwargs):
+        """
+        Backwards-compatible alias for proposals route.
+        Formatting-layer only. Minimal wrapper. No logic changes.
+        """
+        return await self.rewrite_structured_proposal(*args, **kwargs)
 
     async def rewrite_structured_proposal(self, ocr_texts: list[str]) -> str:
         filtered = [t for t in ocr_texts if t.strip()]
