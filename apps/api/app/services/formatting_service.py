@@ -142,13 +142,16 @@ class FormattingService:
     async def structure_proposal(self, *args, **kwargs):
         """Backwards-compatible alias for proposals route. Minimal wrapper."""
         kwargs.pop("document_type", None)
-        return await self.rewrite_structured_proposal(*args, **kwargs)
-    async def structure_proposal(self, *args, **kwargs):
-        """
-        Backwards-compatible alias for proposals route.
-        Formatting-layer only. Minimal wrapper. No logic changes.
-        """
-        return await self.rewrite_structured_proposal(*args, **kwargs)
+        ocr = []
+        if args:
+            first = args[0]
+            if isinstance(first, str):
+                ocr = [first]
+            elif isinstance(first, (list, tuple)):
+                ocr = list(first)
+            else:
+                ocr = [str(first)]
+        return await self.rewrite_structured_proposal(ocr)
 
     async def rewrite_structured_proposal(self, ocr_texts: list[str]) -> str:
         filtered = [t for t in ocr_texts if t.strip()]
