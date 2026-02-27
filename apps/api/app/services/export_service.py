@@ -294,19 +294,25 @@ class ExportService:
                     y_position = height - 1.5 * inch
                     can.setFont("Helvetica", 12)
                 lines = paragraph.strip().split('\n')
-                in_orphan_amount_block = False
+                # Build cleaned_lines for index tracking
+                cleaned_lines = []
                 for line in lines:
                     raw = line
                     line = line.strip()
                     lower = line.lower()
-                    # Suppress junk/meta lines
                     if line.startswith("Session:") or lower.startswith("session:"):
                         continue
                     if line.startswith("PROPOSAL (FALLBACK)"):
                         continue
                     if any(s in lower for s in ["here is the transcribed", "transcribed handwritten", "from the image", "```"]):
                         continue
-                    # Remove markdown/artifacts safely
+                    if line.startswith("---"):
+                        continue
+                    import re
+                    if re.match(r"^page\s*\d*$", line, re.I):
+                        continue
+                    if line.lower() == "invoice":
+                        continue
                     line = line.replace("**", "").replace("`", "")
                     line = line.replace("\\", "")
                     if line.startswith("* "):
@@ -315,7 +321,14 @@ class ExportService:
                     line = line.strip()
                     if not line:
                         continue
-                    # Orphan Amount block suppression
+                    if re.match(r"^\d{1,3}$", line):
+                        continue
+                    cleaned_lines.append(line)
+                in_orphan_amount_block = False
+                for idx, line in enumerate(cleaned_lines):
+                    raw = line
+                    raw_has_dollar = ("$" in raw)
+                    lower = line.lower()
                     if line.lower() == "amount":
                         in_orphan_amount_block = True
                         continue
@@ -324,7 +337,6 @@ class ExportService:
                             continue
                         elif line:
                             in_orphan_amount_block = False
-                    # Money alignment
                     money_match = money_cents_re.search(line)
                     money_is_whole = False
                     if not money_match:
@@ -332,6 +344,7 @@ class ExportService:
                         if has_letters:
                             money_match = money_whole_re.search(line)
                             money_is_whole = bool(money_match)
+                    # Money alignment with Total label for last amount-only line
                     if money_match:
                         amount_text = money_match.group(1)
                         label_text = line[:money_match.start()].rstrip(" :\t")
@@ -339,22 +352,29 @@ class ExportService:
                             amount_text = "$" + amount_text
                         if money_is_whole and "." not in amount_text:
                             amount_text = amount_text + ".00"
-                        prof_font_name = "Helvetica"
-                        prof_font_size = 12
-                        desc_max_width = divider_x - left_margin - self.DESC_PAD_R
-                        wrapped_label_lines = wrap_text_to_width(label_text, prof_font_name, prof_font_size, desc_max_width)
-                        first_line = True
-                        for wrapped_line in wrapped_label_lines or [""]:
-                            if y_position < bottom_margin + 30:
-                                can.showPage()
-                                y_position = height - 1.5 * inch
-                                can.setFont(prof_font_name, prof_font_size)
-                            can.drawString(left_margin, y_position, wrapped_line)
-                            if first_line:
-                                can.drawRightString(amount_right_x - self.AMT_PAD_R, y_position, amount_text)
-                                first_line = False
-                            y_position -= 15
-                        continue
+                        # Hard guard: skip money alignment if not real money
+                        if (not raw_has_dollar and amount_text == "$1.00" and len(raw.strip()) <= 6):
+                            pass  # fall through to normal rendering
+                        else:
+                            # If this is the last cleaned line and amount-only, label as Total
+                            if amount_only_re.match(line) and idx == len(cleaned_lines) - 1:
+                                label_text = "Total"
+                            prof_font_name = "Helvetica"
+                            prof_font_size = 12
+                            desc_max_width = divider_x - left_margin - self.DESC_PAD_R
+                            wrapped_label_lines = wrap_text_to_width(label_text, prof_font_name, prof_font_size, desc_max_width)
+                            first_line = True
+                            for wrapped_line in wrapped_label_lines or [""]:
+                                if y_position < bottom_margin + 30:
+                                    can.showPage()
+                                    y_position = height - 1.5 * inch
+                                    can.setFont(prof_font_name, prof_font_size)
+                                can.drawString(left_margin, y_position, wrapped_line)
+                                if first_line:
+                                    can.drawRightString(amount_right_x - self.AMT_PAD_R, y_position, amount_text)
+                                    first_line = False
+                                y_position -= 15
+                            continue
                     # Bullets for real lists
                     if line.startswith('-') or line.startswith('•'):
                         line = '• ' + line.lstrip('-•').strip()
