@@ -170,28 +170,50 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                     "session_id": payload.session_id,
                     "sections": [{"title": "Scope", "items": [payload.raw_text]}],
                 }
-                # Minimal fallback extraction for client_name and address from raw_text
+                # Deterministic header parse for client_name and address from raw_text
                 if not client_name or not address:
                     import re
-                    lines = [l.strip() for l in payload.raw_text.splitlines() if l.strip()]
-                    extracted_name = None
-                    extracted_address = None
-                    # Find client name: first non-empty line not containing $ and length < 60
-                    for line in lines:
-                        if "$" not in line and len(line) < 60:
-                            extracted_name = line
+                    lines = [ln.strip() for ln in payload.raw_text.splitlines() if ln.strip()]
+                    # Remove leading page markers (e.g. --- Page ...)
+                    i = 0
+                    while i < len(lines):
+                        if re.match(r"^---\s*Page\b", lines[i], re.IGNORECASE):
+                            del lines[i]
+                            # Remove following blank if present
+                            if i < len(lines) and not lines[i]:
+                                del lines[i]
+                        else:
                             break
-                    # Find address: next line with digit and street suffix or 5-digit zip
-                    street_re = re.compile(r"\b(St|Ave|Rd|Dr|Way|Ln|Blvd|Ct)\b", re.IGNORECASE)
-                    zip_re = re.compile(r"\b\d{5}\b")
-                    for line in lines:
-                        if (any(x.isdigit() for x in line) and street_re.search(line)) or zip_re.search(line):
-                            extracted_address = line
-                            break
-                    if not client_name and extracted_name:
-                        proposal_data["client_name"] = extracted_name
-                    if not address and extracted_address:
-                        proposal_data["project_address"] = extracted_address
+                    head = lines[:20]
+                    name_candidate = None
+                    addr_candidate = None
+                    # Find name_candidate
+                    for idx, line in enumerate(head):
+                        if len(line) > 60:
+                            continue
+                        if not re.search(r"[a-zA-Z]", line):
+                            continue
+                        if re.search(r"invoice|proposal", line, re.IGNORECASE):
+                            continue
+                        if line.lstrip().startswith('-'):
+                            continue
+                        name_candidate = line
+                        # Find addr_candidate as next line after name_candidate
+                        for j in range(idx+1, len(head)):
+                            addr_line = head[j]
+                            # Must not be digits-only
+                            if re.fullmatch(r"\d+", addr_line):
+                                continue
+                            # Must contain digit and letter OR street suffix
+                            street_re = re.compile(r"\b(Pl|Place|St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Way|Ln|Lane|Blvd|Boulevard|Ct|Court|Cir|Circle)\b", re.IGNORECASE)
+                            if ((re.search(r"[a-zA-Z]", addr_line) and re.search(r"\d", addr_line)) or street_re.search(addr_line)):
+                                addr_candidate = addr_line
+                                break
+                        break
+                    if not client_name and name_candidate:
+                        proposal_data["client_name"] = name_candidate
+                    if not address and addr_candidate:
+                        proposal_data["project_address"] = addr_candidate
                 if client_name:
                     proposal_data["client_name"] = client_name
                 if address:
