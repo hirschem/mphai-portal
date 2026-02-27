@@ -258,7 +258,9 @@ class FormattingService:
         prompt = (
             "You are turning handwritten notes into a clean invoice/proposal scope list.\n"
             "Hard rules:\n"
-            "- Plain text only. No markdown, no bullets like '*' (use '•' only if needed).\n"
+            "- Plain text only. No markdown.\n"
+            "- Output each line as plain text. Do NOT include bullets (no '•', no '-', no numbering).\n"
+            "- Do NOT include client name, address, or any header information in the output body.\n"
             "- Do NOT include printed/letterhead content (company slogans, phone, email, address).\n"
             "- Do NOT include 'Session:' or 'Page:' lines.\n"
             "- Do NOT output stand-alone numbers or an 'Amount' section.\n"
@@ -283,10 +285,20 @@ class FormattingService:
             "- If an amount has no '$' or no decimals, normalize it to dollars with two decimals.\n"
             "- If you cannot confidently find a price for a scope line, KEEP the line but output it with NO price.\n"
             "- Stand-alone numbers (e.g. 192, 12600) should only be used as Total if clearly the final total; otherwise ignore them.\n"
+            "- Do NOT merge separate scope lines into one combined line, even if they are adjacent.\n"
+            "- If two separate amounts appear (e.g., 175 and 75), keep them as separate line items.\n"
+            "- If a final handwritten total exists (e.g., 12,600), use ONLY that as the Total.\n"
+            "- Do NOT recompute or sum line items.\n"
+            "- Never add line items together to create new totals.\n"
             "Voice:\n"
             "Older, friendly, experienced construction owner: plain, direct, practical wording."
         )
-        full_prompt = prompt + "\n\n" + combined_text
+        full_prompt = (
+            prompt
+            + "\n\n=== BEGIN HANDWRITTEN NOTES ===\n"
+            + combined_text
+            + "\n=== END HANDWRITTEN NOTES ===\n"
+        )
         async def _do_call():
             model_name = "gpt-4o"
             temperature_value = 0.0
