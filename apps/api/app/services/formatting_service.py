@@ -168,17 +168,62 @@ class FormattingService:
                 "AI_SCHEMA_VALIDATION_FAILED",
                 "Proposal output was not a JSON object."
             )
-        # Normalize client fields for ProposalData compatibility
-        # 1. If client_name exists and is non-empty, keep as is (no-op)
-        # 2. If client_address exists and project_address is missing/empty, set project_address = client_address
+        # --- ProposalData normalization block ---
+        # Client name mapping
+        def _get_nested(dct, *keys):
+            for k in keys:
+                if isinstance(dct, dict) and k in dct and dct[k]:
+                    return dct[k]
+            return None
+
+        if not data.get("client_name"):
+            data["client_name"] = (
+                data.get("customer_name")
+                or data.get("name")
+                or data.get("bill_to_name")
+                or _get_nested(data.get("client", {}), "name")
+                or _get_nested(data.get("bill_to", {}), "name")
+            )
+
+        # Project address mapping (keep existing logic, add nested)
         if data.get("client_address") and not data.get("project_address"):
             data["project_address"] = data["client_address"]
-        # 3. If address exists and project_address is missing/empty, set project_address = address
         if data.get("address") and not data.get("project_address"):
             data["project_address"] = data["address"]
-        # 4. If project_address exists but client_address is missing, set client_address = project_address
+        # Nested: client["address"], bill_to["address"]
+        if not data.get("project_address"):
+            nested_addr = (
+                _get_nested(data.get("client", {}), "address")
+                or _get_nested(data.get("bill_to", {}), "address")
+            )
+            if nested_addr:
+                data["project_address"] = nested_addr
         if data.get("project_address") and not data.get("client_address"):
             data["client_address"] = data["project_address"]
+
+        # Line items mapping + cents->dollars
+        if isinstance(data.get("line_items"), list):
+            for item in data["line_items"]:
+                # amount_cents -> amount
+                if "amount_cents" in item and "amount" not in item:
+                    try:
+                        item["amount"] = float(item["amount_cents"]) / 100.0
+                    except Exception:
+                        pass
+                # description mapping
+                if not item.get("description"):
+                    desc = item.get("item") or item.get("name")
+                    if desc:
+                        item["description"] = desc
+
+        # Total cents->dollars
+        if not data.get("total") and data.get("total_cents"):
+            try:
+                data["total"] = float(data["total_cents"]) / 100.0
+            except Exception:
+                pass
+
+        # --- End ProposalData normalization block ---
         return data
 
     async def rewrite_structured_proposal(self, ocr_texts: list[str]) -> str:
