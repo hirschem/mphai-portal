@@ -223,6 +223,32 @@ class FormattingService:
             except Exception:
                 pass
 
+        # --- Fallback extraction from original input text (OCR/professional_text) ---
+        # Use the first OCR input as the source text
+        ocr_text = ocr[0] if ocr and isinstance(ocr[0], str) else ""
+        lines = [line.strip() for line in ocr_text.splitlines() if line.strip()]
+
+        # Fallback client_name extraction
+        if not data.get("client_name") and lines:
+            for line in lines:
+                for prefix in ("Client:", "Bill To:", "Customer:"):
+                    if line.startswith(prefix):
+                        val = line[len(prefix):].strip()
+                        if val:
+                            data["client_name"] = val
+                            break
+                if data.get("client_name"):
+                    break
+
+        # Fallback project_address extraction
+        if not data.get("project_address") and lines:
+            import re
+            address_pattern = re.compile(r"\b\d+\b.*\b(St|Ave|Rd|Dr|Way|Ln|Blvd|Ct)\b", re.IGNORECASE)
+            for line in lines[:10]:  # Only check first 10 lines
+                if address_pattern.search(line):
+                    data["project_address"] = line
+                    break
+
         # --- End ProposalData normalization block ---
         return data
 

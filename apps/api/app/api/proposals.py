@@ -122,9 +122,18 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
             try:
                 professional_text = await get_formatting_service().rewrite_professional(payload.raw_text)
                 logger.info(f"[rewrite_professional] session_id={payload.session_id} done")
+                # TEMP LOG: professional_text type and first 800 chars
+                logger.info(f"professional_text type: {type(professional_text)}")
+                logger.info(f"professional_text preview: {repr(professional_text[:800])}")
+
                 proposal_data = await get_formatting_service().structure_proposal(
                     professional_text, document_type=document_type
                 )
+                # TEMP LOG: client_name, project_address, keys
+                logger.info(f"proposal_data client_name: {proposal_data.get('client_name')}")
+                logger.info(f"proposal_data project_address: {proposal_data.get('project_address')}")
+                logger.info(f"proposal_data keys: {list(proposal_data.keys())}")
+
                 if client_name:
                     proposal_data["client_name"] = client_name
                 if address:
