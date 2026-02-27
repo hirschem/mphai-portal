@@ -340,31 +340,39 @@ class ExportService:
                             continue
                         elif line:
                             in_orphan_amount_block = False
-                    money_match = money_cents_re.search(line)
-                    money_is_whole = False
-                    if not money_match:
-                        has_letters = any(ch.isalpha() for ch in line)
-                        if has_letters:
-                            money_match = money_whole_re.search(line)
-                            money_is_whole = bool(money_match)
-                    # Money alignment with Total label for last amount-only line
-                    if money_match:
-                        amount_text = money_match.group(1)
-                        label_text = line[:money_match.start()].rstrip(" :\t")
-                        if not amount_text.startswith("$"):
-                            amount_text = "$" + amount_text
-                        if money_is_whole and "." not in amount_text:
-                            amount_text = amount_text + ".00"
-                        # Prevent small false money (ghost $1.00)
-                        try:
-                            parsed_amount = float(amount_text.replace("$", "").replace(",", ""))
-                        except Exception:
-                            parsed_amount = 0
-                        if parsed_amount < 50 and not raw_has_dollar:
-                            pass  # fall through to normal rendering
-                        elif (not raw_has_dollar and amount_text == "$1.00" and len(raw.strip()) <= 6):
-                            pass  # fall through to normal rendering
-                        else:
+                    # Universal money detection: accept if line contains $ or matches regex
+                    money_accept_re = re.compile(r"\b\d{3,6}(?:,\d{3})?(?:\.\d{2})?\b")
+                    phone_re = re.compile(r"\b\d{3}[- ]?\d{3}[- ]?\d{4}\b")
+                    zip_re = re.compile(r"\b\d{5}(?:-\d{4})?\b")
+                    street_re = re.compile(r"\d{1,5} [A-Za-z]+( St| Ave| Rd| Blvd| Dr| Ln| Ct| Pl| Way| Pkwy| Cir)\b")
+                    # Standalone 1–2 digits
+                    if re.fullmatch(r"\d{1,2}", line):
+                        pass  # reject
+                    # Phone pattern
+                    elif phone_re.search(line):
+                        pass  # reject
+                    # Zip pattern
+                    elif zip_re.search(line):
+                        pass  # reject
+                    # Street pattern
+                    elif street_re.search(line):
+                        pass  # reject
+                    # Accept money if $ or money_accept_re
+                    elif ("$" in line or money_accept_re.search(line)):
+                        money_match = money_cents_re.search(line)
+                        money_is_whole = False
+                        if not money_match:
+                            has_letters = any(ch.isalpha() for ch in line)
+                            if has_letters:
+                                money_match = money_whole_re.search(line)
+                                money_is_whole = bool(money_match)
+                        if money_match:
+                            amount_text = money_match.group(1)
+                            label_text = line[:money_match.start()].rstrip(" :\t")
+                            if not amount_text.startswith("$"):
+                                amount_text = "$" + amount_text
+                            if money_is_whole and "." not in amount_text:
+                                amount_text = amount_text + ".00"
                             # If this is the last cleaned line and amount-only, label as Total
                             if amount_only_re.match(line) and idx == len(cleaned_lines) - 1:
                                 label_text = "Total"
