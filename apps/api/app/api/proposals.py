@@ -192,6 +192,9 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                     head = lines[:20]
                     name_candidate = None
                     addr_candidate = None
+                    # Compile regexes once
+                    street_re = re.compile(r"\b(Pl|Place|St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Way|Ln|Lane|Blvd|Boulevard|Ct|Court|Cir|Circle|Pkwy|Parkway|Ter|Terrace)\b", re.IGNORECASE)
+                    scope_re = re.compile(r"\b(demo|demolition|install|prep|paint|height|labor|material|tile|drywall|electrical|plumbing|pickup|box|ceiling|trim|cabinet|flooring|base\s*shoe|bondo|caulk)\b", re.IGNORECASE)
                     # Find name_candidate
                     for idx, line in enumerate(head):
                         if len(line) > 60:
@@ -209,11 +212,19 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                             # Must not be digits-only
                             if re.fullmatch(r"\d+", addr_line):
                                 continue
-                            # Must contain digit and letter OR street suffix
-                            street_re = re.compile(r"\b(Pl|Place|St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Way|Ln|Lane|Blvd|Boulevard|Ct|Court|Cir|Circle)\b", re.IGNORECASE)
-                            if ((re.search(r"[a-zA-Z]", addr_line) and re.search(r"\d", addr_line)) or street_re.search(addr_line)):
-                                addr_candidate = addr_line
-                                break
+                            # Reject scope-like, ~, @, or dash lines
+                            if scope_re.search(addr_line):
+                                continue
+                            if "~" in addr_line or "@" in addr_line:
+                                continue
+                            if addr_line.lstrip().startswith('-'):
+                                continue
+                            # Require address-like: starts with number+space or has street suffix
+                            addr_like = bool(re.match(r"^\d{1,6}\s+\S+", addr_line)) or bool(street_re.search(addr_line))
+                            if not addr_like:
+                                continue
+                            addr_candidate = addr_line
+                            break
                         break
                     if not client_name and name_candidate:
                         proposal_data["client_name"] = name_candidate
