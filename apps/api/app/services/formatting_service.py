@@ -49,6 +49,8 @@ async def generate_doc(user_prompt, llm_client):
         doc = validate_ai_doc_v1(raw1)
         return doc
     except Exception as e1:
+        logger.error("AIDOC VALIDATION FAILED: %s", str(e1))
+        logger.error("AIDOC RAW RESPONSE (truncated): %s", raw1[:2000])
         err_txt = _format_validation_errors(e1)
         retry_prompt = (
             base_prompt
