@@ -197,6 +197,11 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
         await file_manager.save_proposal(payload.session_id, proposal_data_obj, document_type=document_type)
         logger.info(f"[save_proposal] session_id={payload.session_id} done")
 
+        # Temporary debug logging before PDF rendering
+        logger.info("PDF DEBUG line_items: %s", proposal_data_obj.line_items)
+        logger.info("PDF DEBUG total: %s", proposal_data_obj.total)
+        logger.info("PDF DEBUG professional_text: %s", professional_text)
+
         # Generate PDF with correct naming and header
         format = "pdf"
         output_path = await export_service.export_document(payload.session_id, proposal_data_obj, professional_text, format, document_type=document_type)
