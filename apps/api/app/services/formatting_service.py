@@ -140,7 +140,8 @@ async def generate_doc(user_prompt, llm_client):
 
 class FormattingService:
     async def structure_proposal(self, *args, **kwargs):
-        """Backwards-compatible alias for proposals route. Minimal wrapper."""
+        """Backwards-compatible alias for proposals route. Minimal wrapper. Returns ProposalData-compatible dict."""
+        import json
         kwargs.pop("document_type", None)
         ocr = []
         if args:
@@ -151,7 +152,23 @@ class FormattingService:
                 ocr = list(first)
             else:
                 ocr = [str(first)]
-        return await self.rewrite_structured_proposal(ocr)
+        try:
+            try:
+                result = await self.rewrite_structured_proposal(ocr, **kwargs)
+            except TypeError:
+                result = await self.rewrite_structured_proposal(ocr)
+            data = json.loads(result)
+        except Exception as e:
+            raise StandardizedAIError(
+                "AI_SCHEMA_VALIDATION_FAILED",
+                f"Failed to parse proposal JSON: {e}"
+            )
+        if not isinstance(data, dict):
+            raise StandardizedAIError(
+                "AI_SCHEMA_VALIDATION_FAILED",
+                "Proposal output was not a JSON object."
+            )
+        return data
 
     async def rewrite_structured_proposal(self, ocr_texts: list[str]) -> str:
         filtered = [t for t in ocr_texts if t.strip()]
