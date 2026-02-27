@@ -222,4 +222,18 @@ class FormattingService:
         return await generate_doc(user_prompt, llm_client)
 
     async def rewrite_professional(self, user_prompt: str) -> str:
-        return await self.generate_doc(user_prompt, self.client)
+        import json
+        value = await self.generate_doc(user_prompt, self.client)
+        # Defensive extraction for Pydantic/model/dict
+        if isinstance(value, str):
+            return value
+        for key in ("professional_text", "text", "content", "body"):
+            if hasattr(value, key):
+                attr = getattr(value, key)
+                if isinstance(attr, str):
+                    return attr
+        if hasattr(value, "model_dump"):
+            return json.dumps(value.model_dump())
+        if isinstance(value, dict):
+            return json.dumps(value)
+        return str(value)
