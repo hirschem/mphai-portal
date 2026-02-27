@@ -97,9 +97,13 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
             )
 
 
+
         document_type = getattr(payload, "document_type", "proposal")
         client_name = (getattr(payload, "client_name", None) or "").strip() or None
         address = (getattr(payload, "address", None) or "").strip() or None
+        # Log raw text and payload client info before any OpenAI calls
+        logger.info(f"RAW_TEXT_PREVIEW_TOP: {repr(payload.raw_text[:500])}")
+        logger.info(f"PAYLOAD client_name={repr(client_name)} address={repr(address)}")
 
         # Stub mode when OPENAI_API_KEY is missing (local/dev)
         if not os.environ.get("OPENAI_API_KEY"):
@@ -166,6 +170,28 @@ async def generate_proposal(payload: ProposalRequest, request: Request, response
                     "session_id": payload.session_id,
                     "sections": [{"title": "Scope", "items": [payload.raw_text]}],
                 }
+                # Minimal fallback extraction for client_name and address from raw_text
+                if not client_name or not address:
+                    import re
+                    lines = [l.strip() for l in payload.raw_text.splitlines() if l.strip()]
+                    extracted_name = None
+                    extracted_address = None
+                    # Find client name: first non-empty line not containing $ and length < 60
+                    for line in lines:
+                        if "$" not in line and len(line) < 60:
+                            extracted_name = line
+                            break
+                    # Find address: next line with digit and street suffix or 5-digit zip
+                    street_re = re.compile(r"\b(St|Ave|Rd|Dr|Way|Ln|Blvd|Ct)\b", re.IGNORECASE)
+                    zip_re = re.compile(r"\b\d{5}\b")
+                    for line in lines:
+                        if (any(x.isdigit() for x in line) and street_re.search(line)) or zip_re.search(line):
+                            extracted_address = line
+                            break
+                    if not client_name and extracted_name:
+                        proposal_data["client_name"] = extracted_name
+                    if not address and extracted_address:
+                        proposal_data["project_address"] = extracted_address
                 if client_name:
                     proposal_data["client_name"] = client_name
                 if address:
